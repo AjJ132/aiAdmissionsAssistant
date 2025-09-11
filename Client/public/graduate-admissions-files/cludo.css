@@ -1,0 +1,300 @@
+/* Container wrapping all facets */
+.cludo-facet-wrapper{}
+
+/* Individual facet */
+.cludo-facet{}
+
+/* Individual facet title */
+.cludo-facet__header {
+	display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    width: 100%;
+    font-weight: 700;
+    margin-bottom: 0;
+    margin-top: 1em;
+    margin-bottom: 1.5rem;
+	text-align: left;
+    -webkit-box-align: start;
+    -ms-flex-align: start;
+    align-items: flex-start;
+    -webkit-box-pack: start;
+    -ms-flex-pack: start;
+    justify-content: flex-start;
+	-webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+    -ms-flex-direction: column;
+    flex-direction: column;
+    margin-bottom: 0;
+	font-size: 1.75rem;
+}
+.cludo-facet__header:after {
+	content: "";
+    border-top: .3rem solid #ffc629;
+    margin: 0 2% 0 0;
+    -webkit-box-flex: 1;
+    -ms-flex: 1 0 20px;
+    flex: 1 0 20px;
+    position: relative;
+    bottom: -.75rem;
+    clear: both;
+    width: 3.5rem;
+    border-width: .4rem;
+    margin: 0;
+}
+/* Individual facet list */
+.cludo-facet__value-list{}
+
+/* Individual facet value */
+.cludo-facet__value-list-item{
+}
+.cludo-facet__value-list-item:hover a{
+	color: #ffc629;
+}
+
+/* Individual facet value when selected */
+.cludo-facet__value-list-item.active a{
+	font-weight: 700;
+}
+
+/* Individual facet - list variation. This could be used for showing the facet on desktop */
+.cludo-facet.list-facet{}
+
+/* Individual facet - dropdown variation. This could be used for showing the facet on mobile */
+.cludo-facet.dropdown-facet{}
+
+/* Trigger button for dropdown variation facet*/
+.cludo-facet__dropdown-header{}
+
+.cludo-theme-btn-accent-secondary-inactive {
+	background: #ffc629!important;
+	color: black!important;
+	opacity: 1!important;
+	font-weight: 700!important;
+    font-size: 1rem!important; 
+}
+.cludo-theme-btn-accent-secondary {
+	background: transparent!important;
+	color: black!important;
+    font-size: 1rem!important; 
+}
+.cludo-page-navigation > ul {
+	justify-content: center;
+}
+
+#header_search .search_autocomplete {
+    display: none !important;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/* Individual search result container */
+.cludo-search-results-item{
+	margin-bottom: 2.25rem;
+}
+.cludo-search-results-item:hover .cludo-search-results-item__title {
+	color: #ffc629;
+}
+
+/* Search result image (if indexed) */
+.cludo-search-results-item__image-container{
+	display: none;
+}
+
+/* Container wrapping all text content in the result */
+.cludo-search-results-item__content{
+	color: #1a1a1a;
+}
+
+/* Search result badge (if indexed) */
+.cludo-search-results-item__badge{}
+
+/* Search result date (if indexed) */
+.cludo-search-results-item__date{}
+
+/* Search result title */
+.cludo-search-results-item__title{
+	color: #4651ce;
+	font-size: 1.5rem;
+}
+
+/* Search result description */
+.cludo-search-results-item__description{}
+
+/* Search result URL */
+.cludo-search-results-item__path-anchor{
+	font-size: 0.8rem;
+    color: #767676;
+	margin-top: 0 !important;
+}
+
+/* Search result breadcrumb (if indexed) */
+.cludo-search-results-item__breadcrumbs{}
+
+#ksu #cludo-search-results .cludo-facet-wrapper .cludo-facet__dropdown-header:after {
+	border-left: 10px solid rgba(0, 0, 0, 0);
+    border-right: 10px solid rgba(0, 0, 0, 0);
+    border-top: 10px solid #000000;
+	right: 12px;
+}
+#ksu #cludo-search-results .cludo-facet-wrapper .cludo-facet__dropdown-header.open:after {
+	border-top: none;
+    border-bottom: 10px solid #000000;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.search-results-item {
+	list-style: none;
+	margin:0 !important;
+}
+.search-results-item a { 
+	color: #1a1a1a;
+	text-decoration: none;
+	display: block;
+	border-bottom: 1px solid #e5e5e5;
+	padding: 1.5rem;
+	padding-bottom: 1.25rem;
+}
+.search-results-item a .path {
+	font-size: 0.7rem;
+	color: #4e59d0;
+}
+.search-results-item h2 {
+	font-size: 1.25rem;
+	margin: 0;
+	color: #4e59d0;
+}
+.search-results-item p {
+	margin: 0.5rem 0;
+	font-weight: initial;
+}
+.search-results-item a:hover { 
+	color: #1a1a1a;
+	background: #e8eaff;
+}
+.search-results-item a:hover h2 { 
+	text-decoration: underline;
+}
+.search_autocomplete {
+	color: #1a1a1a!important;
+	position: absolute;
+	max-width: 20rem;
+	top: 55px;
+}
+.search_autocomplete li {
+	padding: 1rem 0.5rem;
+	cursor: pointer;
+}
+.search_autocomplete li:hover {
+	background: #f1f4f9!important;
+}
+#cludo_inline_search {
+	.search_autocomplete {
+		max-width: 100% !important;
+	}
+}
+.facet-list-item a {
+	text-decoration: none;
+	padding: 0.5rem 0;
+	padding-left: 1.5rem;
+	display: block;
+	position:relative;
+}
+.facet-list-item a:hover {
+	color: #4e59d0;
+	-webkit-text-decoration: underline #4e59d0;
+	text-decoration: underline #4e59d0;
+	text-decoration-thickness: 2px;
+	text-underline-offset: 2px;
+}
+.facet-list-item a:before {
+	content: "\f0c8";
+	font-family: "Font Awesome 6 Pro";
+	color: black!important;
+	left: 0;
+	position: absolute;
+}
+.facet-list-item.active a:before {
+	content: "\f14a";
+}
+.powered-by-cludo {
+	display: none;
+}
+.search_page_list {
+	display: flex;
+	justify-content: center;
+	margin-top: 1.5rem!important;
+}
+.search_page_list li {
+	padding: 0rem!important;
+	border: 1px solid #e5e5e5;
+	width: 50px!important;
+	display: flex!important;
+	justify-content: center;
+	align-items: center;
+}
+.search_page_list li.active {
+	background: #ffc629!important;
+	font-weight: bold;
+}
+.search_page_list li a {
+	padding: 0.5rem;
+	text-decoration: none;
+}
+.search_page_list li:hover:not(.active) {
+	background: #f1f4f9!important;
+	cursor: pointer;
+}
+.search_page_list li:hover a {
+	color: #1a1a1a!important;
+}
+@media only screen and (max-width: 900px) {
+	.search_autocomplete {
+		max-width: calc(100% - 1rem);
+	}
+	.cludo-r {
+		flex-direction: column!important;
+	}
+	.cludo-c-3, .cludo-c-9 {
+		max-width: 100%!important;
+	}
+	.cludo-c-3:after {
+		content: "";
+		display: block;
+		height: 2px;
+		width: 100%;
+		background: #e5e5e5;
+		margin-bottom: 1rem;
+		margin-top: 0.5rem;
+	}
+}

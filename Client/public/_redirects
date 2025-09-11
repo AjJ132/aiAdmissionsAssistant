@@ -1,0 +1,6 @@
+# Handle static assets and HTML files
+/grad_admin.html   /grad_admin.html   200
+/graduate-admissions-files/*   /graduate-admissions-files/:splat   200
+
+# SPA fallback - redirect all other routes to index.html
+/*    /index.html   200
