@@ -40,9 +40,10 @@ function App() {
 
   // Set favicon
   useEffect(() => {
-    const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement;
+    const faviconURL = 'scrappyhead.png';
+    let favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
     if (favicon) {
-      favicon.href = "https://www.kennesaw.edu/webstatic/_omni/images/favicon.ico";
+      favicon.href = faviconURL;
     } else {
       const newFavicon = document.createElement('link');
       newFavicon.rel = 'icon';
