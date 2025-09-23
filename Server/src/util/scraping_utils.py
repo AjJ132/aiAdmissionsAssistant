@@ -41,5 +41,24 @@ class ScrapingUtils:
         print(f"Successfully parsed {len(degrees)} degrees")
         return degrees
                     
+    @staticmethod
+    def get_all_text_content(html) -> str:
+        if html is None:
+            return ""
         
+        # Get all text from the html page
+        tree = lxml_html.fromstring(html)
+        text_content = tree.text_content()
+        return text_content
         
+    @staticmethod
+    def parse_degree_page(html: str, description_xpath: str) -> dict:
+        tree = lxml_html.fromstring(html)
+        description_element = tree.xpath(description_xpath)
+        description = description_element[0].text_content().strip() if description_element else "No description found"
+
+        print(f"Extracted description: {description[:100]}...")  # Print first 100 characters
+
+        return {
+            "description": description
+        }

@@ -32,6 +32,10 @@ class ScrapingController:
                 return None
             
             # foreach degree, scrape page 
+            # LIMIT to 1 for demo purposes
+            for degree in self.obtained_degrees[:1]:
+                print(f"Scraping degree page: {degree['name']} - {degree['url']}")
+                self.scrapeDegreePage(degree['name'], degree['url'])
 
         except Exception as e:
             print(f"Error during scraping operation: {e}")
@@ -63,5 +67,30 @@ class ScrapingController:
             return grad_degrees
         except Exception as e:
             print(f"Error fetching degree list: {e}")
+            raise e
+        
+    def scrapeDegreePage(self, degree_name, degree_url):
+        try:
+            page_html = self.webRequestService.fetchPage(degree_url)
+
+            #save to file
+            with open('debug_degree_page.html', 'w') as f:
+                f.write(page_html)
+
+            # for demo purposes
+            text_content = self.scraping_utils.get_all_text_content(page_html)
+
+            description_xpath = self.config.get("degree", {}).get("description_xpath", "")
+            if not description_xpath:    
+                raise ValueError("Degree description XPath not found in config")
+
+            # parse page
+            degree_information = self.scraping_utils.parse_degree_page(
+                page_html,
+                description_xpath
+            )
+
+        except Exception as e:
+            print(f"Error fetching degree page for {degree_name}: {e}")
             raise e
     
