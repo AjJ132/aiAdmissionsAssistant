@@ -1,0 +1,4 @@
+{
+    "grad_admissions_list_url": "https://www.kennesaw.edu/degrees-programs/master-degrees/index.php",
+    "grad_admissions_list_xpath": "//ul[@class='searchable_list link_list is_full']"
+}

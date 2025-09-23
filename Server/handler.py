@@ -16,9 +16,9 @@ def lambda_handler(event: dict, context):
         # check route
         route = event.get("routeKey", "")
         if route == "POST /scrape":
-            from src.controllers.ScrapingController import ScrapingControllerFactory
-            controller = ScrapingControllerFactory.create()
-            result = controller.test()
+            from src.controllers.scraping_controller import ScrapingControllerFactory
+            controller = ScrapingControllerFactory.createScrapingController()
+            result = controller.beginScrapingOperation()
             return {
                 'statusCode': 200,
                 'body': json.dumps({'message': result})
