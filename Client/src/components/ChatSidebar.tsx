@@ -172,7 +172,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           canSendMessage={canSendMessage}
           placeholder={
             isLoading 
-              ? "Assistant is typing..." 
+              ? "KSU Graduate Admissions Assistant is typing..." 
               : !canSendMessage 
                 ? "Please wait for response..." 
                 : isDemoMode 
