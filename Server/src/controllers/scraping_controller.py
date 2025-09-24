@@ -31,9 +31,8 @@ class ScrapingController:
                 return None
             degree_information = []
             # foreach degree, scrape page 
-            # LIMIT to 1 for demo purposes
-            for degree in self.obtained_degrees[:1]:
-            # for degree in self.obtained_degrees:
+            # for degree in self.obtained_degrees[:1]:
+            for degree in self.obtained_degrees:
                 print(f"Scraping degree page: {degree['name']} - {degree['url']}")
                 scraped_info = self.scrapeDegreePage(degree['name'], degree['url'])
 
