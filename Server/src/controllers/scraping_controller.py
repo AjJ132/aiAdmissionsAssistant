@@ -9,7 +9,6 @@ class ScrapingControllerFactory:
         #load config from json file
         with open('src/util/scraping_config.json') as f:
             config = json.load(f)
-
         return ScrapingController(webRequestService=WebRequestService(), scraping_utils=ScrapingUtils(), config=config)
 
 
@@ -46,7 +45,7 @@ class ScrapingController:
                 degree_information.append(degree_info)
 
             #save to file
-            with open('debug_all_degrees.json', 'w') as f:
+            with open('scraped_degrees_output.json', 'w') as f:
                 json.dump(degree_information, f, indent=4)
 
         except Exception as e:
@@ -85,34 +84,17 @@ class ScrapingController:
         try:
             page_html = self.webRequestService.fetchPage(degree_url)
 
-            #save to file
-            with open('debug_degree_page.html', 'w') as f:
-                f.write(page_html)
-
-            # for demo purposes
-            text_content = self.scraping_utils.get_all_text_content(page_html)
-
-            description_xpath = self.config.get("degree", {}).get("description_xpath", "")
-            if not description_xpath:    
-                raise ValueError("Degree description XPath not found in config")
-            
-            snapshot_xpath = self.config.get("degree", {}).get("snapshot_xpath", "")
-            if not snapshot_xpath:    
-                raise ValueError("Degree snapshot XPath not found in config")
-
-            # parse page
-            degree_information = self.scraping_utils.parse_degree_page(
-                html=page_html,
-                description_xpath=description_xpath,
-                snapshot_xpath=snapshot_xpath
-            )
+            print(f"Extracting degree page (no fallback) for: {degree_name}")
+            degree_information = self.scraping_utils.extract_main_content(page_html)
 
             if not degree_information:
                 raise ValueError(f"No information parsed for degree: {degree_name}")
-            
-            return degree_information
 
+            degree_information['scraped_url'] = degree_url
+            degree_information['scraped_degree_name'] = degree_name
+
+            return degree_information
         except Exception as e:
-            print(f"Error fetching degree page for {degree_name}: {e}")
+            print(f"Error scraping degree page for {degree_name}: {e}")
             raise e
     
