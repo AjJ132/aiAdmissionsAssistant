@@ -72,6 +72,9 @@ class ScrapingController:
 
                 print(f"Scraping complete! Successfully processed {len(degree_information)} degrees")
 
+                # sort by name in ABC order
+                degree_information.sort(key=lambda x: x['name'])
+
                 # Save to file
                 with open('scraped_degrees_output.json', 'w') as f:
                     json.dump(degree_information, f, indent=4)
@@ -133,6 +136,11 @@ class ScrapingController:
         """Scrape a single degree page asynchronously"""
         try:
             page_html = await self.webRequestService.fetchPage(degree_url)
+
+            # write to file for debugging
+            debug_filename = f"debug_html.html"
+            with open(debug_filename, 'w') as f:
+                f.write(page_html)
 
             print(f"Extracting degree page for: {degree_name}")
             degree_information = self.scraping_utils.extract_main_content(page_html)

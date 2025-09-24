@@ -88,7 +88,6 @@ class ScrapingUtils:
             'program_benefits': ScrapingUtils._extract_program_benefits(tree),
             'contact_info': ScrapingUtils._extract_contact_info(tree),
             'related_programs': ScrapingUtils._extract_related_programs(tree),
-            'key_sections': ScrapingUtils._extract_key_sections(tree),
             'all_text': ScrapingUtils._extract_clean_text(tree)
         }
         
@@ -172,47 +171,64 @@ class ScrapingUtils:
     
     @staticmethod
     def _extract_admission_requirements(tree) -> List[str]:
-        """Extract admission requirements"""
+        """Extract admission requirements with enhanced logic for KSU pages"""
         requirements = []
         
-        # Find requirements section - look for "Admission Requirements" heading
-        req_headings = tree.xpath('//*[contains(text(), "Admission Requirements")]')
+        # First check if there's a link to admissions requirements section
+        req_link = tree.xpath('//a[@href="#admissions_requirements" or contains(@href, "admissions_requirements")]')
         
-        for heading in req_headings:
-            # Look for the parent container that holds the requirements
-            container = heading.getparent()
-            if container is not None:
-                # Look for the next sibling that contains the two-column layout
-                next_sibling = container.getnext()
-                if next_sibling is not None:
-                    # Find all ul elements within the two-column layout
-                    lists = next_sibling.xpath('.//ul//li')
-                    for li in lists:
-                        # Get the text content from the div inside li
-                        div = li.find('.//div')
-                        if div is not None:
-                            req_text = div.text_content().strip()
-                        else:
-                            req_text = li.text_content().strip()
-                        
-                        if len(req_text) > 10:  # Filter out empty or tiny items
-                            requirements.append(ScrapingUtils._clean_unicode_escapes(req_text))
-        
-        # Fallback: if no requirements found with the specific heading, try broader search
-        if not requirements:
-            # Look for any heading containing "Admission" and then find nearby lists
-            req_headings = tree.xpath('//*[contains(text(), "Admission")]')
-            for heading in req_headings:
-                container = heading.getparent()
-                if container is not None:
-                    # Find lists within reasonable distance
-                    lists = container.xpath('.//ul//li | .//ol//li')
+        if req_link:
+            # Enhanced logic for KSU pages with admissions_requirements anchor
+            req_section = tree.xpath('//*[@id="admissions_requirements"]')
+            
+            if req_section:
+
+                # Find the parent section containing the admissions requirements
+                section_parent = None
+                current = req_section[0]
+                
+                # Traverse up to find the section container
+                for _ in range(5):  # Limit traversal depth
+                    current = current.getparent()
+                    if current is not None and 'section' in current.get('class', ''):
+                        section_parent = current
+                        break
+                
+                if section_parent is not None:
+                    # Look for all ul elements in the section
+                    lists = section_parent.xpath('.//ul//li')
                     for li in lists:
                         req_text = li.text_content().strip()
                         if len(req_text) > 10:  # Filter out empty or tiny items
                             requirements.append(ScrapingUtils._clean_unicode_escapes(req_text))
+                    
+                    # Also look for any paragraphs with admission criteria
+                    criteria_paragraphs = section_parent.xpath('.//p[contains(text(), "Admission Criteria") or contains(text(), "Additional Program Requirements")]')
+                    for p in criteria_paragraphs:
+                        # Get the parent container and look for nearby lists
+                        p_container = p.getparent()
+                        if p_container is not None:
+                            nearby_lists = p_container.xpath('.//ul//li | .//ol//li')
+                            for li in nearby_lists:
+                                req_text = li.text_content().strip()
+                                if len(req_text) > 10 and req_text not in [req.split(' - ')[0] for req in requirements]:
+                                    requirements.append(ScrapingUtils._clean_unicode_escapes(req_text))
+                    
+                    # Look for text content in two-column divs that might contain requirements
+                    two_col_divs = section_parent.xpath('.//div[contains(@class, "two_col")]//div')
+                    for div in two_col_divs:
+                        text_content = div.text_content().strip()
+                        # Check if this looks like requirement text (contains key phrases)
+                        if (len(text_content) > 50 and 
+                            any(keyword in text_content.lower() for keyword in 
+                                ['must', 'required', 'should', 'complete', 'prior to', 'accounting', 'gpa', 'hours'])):
+                            # Split into sentences and add relevant ones
+                            sentences = [s.strip() for s in text_content.split('.') if len(s.strip()) > 20]
+                            for sentence in sentences[:3]:  # Limit to first 3 sentences
+                                if sentence not in requirements:
+                                    requirements.append(ScrapingUtils._clean_unicode_escapes(sentence))
         
-        return requirements[:10]  # Limit to prevent noise
+        return requirements[:15]  # Increased limit for more comprehensive extraction
     
     @staticmethod
     def _extract_program_benefits(tree) -> List[str]:
@@ -239,24 +255,39 @@ class ScrapingUtils:
         contact = {}
         
         # Look for phone numbers
-        phone_elements = tree.xpath('//a[starts-with(@href, "tel:")] | //*[contains(text(), "Phone")]')
+        phone_elements = tree.xpath('//a[starts-with(@href, "tel:")] | //*[contains(text(), "Phone") and not(self::style) and not(self::script)]')
         for elem in phone_elements:
             text = elem.text_content().strip()
             href = elem.get('href', '')
-            if 'tel:' in href or re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', text):
-                contact['phone'] = ScrapingUtils._clean_unicode_escapes(text)
+            if 'tel:' in href:
+                # Extract phone from tel: link
+                phone = href.replace('tel:', '').replace('+1', '').strip()
+                contact['phone'] = ScrapingUtils._clean_unicode_escapes(phone)
                 break
+            elif re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', text):
+                # Extract phone number from text using regex
+                phone_match = re.search(r'(\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4})', text)
+                if phone_match:
+                    contact['phone'] = ScrapingUtils._clean_unicode_escapes(phone_match.group(1))
+                    break
         
         # Look for email
-        email_elements = tree.xpath('//a[starts-with(@href, "mailto:")] | //*[contains(text(), "@")]')
+        email_elements = tree.xpath('//a[starts-with(@href, "mailto:")] | //*[contains(text(), "@") and not(self::style) and not(self::script)]')
         for elem in email_elements:
             text = elem.text_content().strip()
             href = elem.get('href', '')
             if '@' in text or 'mailto:' in href:
                 if 'mailto:' in href:
-                    contact['email'] = ScrapingUtils._clean_unicode_escapes(href.replace('mailto:', ''))
+                    # Clean up mailto href, remove query parameters
+                    email = href.replace('mailto:', '').split('?')[0]
+                    contact['email'] = ScrapingUtils._clean_unicode_escapes(email)
                 elif '@' in text:
-                    contact['email'] = ScrapingUtils._clean_unicode_escapes(text)
+                    # Validate that this looks like an email and not CSS code
+                    if (re.search(r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b', text) and
+                        not text.startswith('.') and  # Not CSS class
+                        not '@media' in text and      # Not CSS @media rule
+                        not text.count('{') > 0):     # Not CSS code block
+                        contact['email'] = ScrapingUtils._clean_unicode_escapes(text)
                 break
         
         # Look for address
@@ -299,39 +330,6 @@ class ScrapingUtils:
                         })
         
         return programs[:5]  # Limit results
-    
-    @staticmethod
-    def _extract_key_sections(tree) -> Dict[str, str]:
-        """Extract major content sections by headings"""
-        sections = {}
-        
-        # Find all headings (h2, h3, h4)
-        headings = tree.xpath('//h2 | //h3 | //h4')
-        
-        for heading in headings:
-            heading_text = ScrapingUtils._clean_unicode_escapes(heading.text_content().strip())
-            if len(heading_text) > 3:
-                # Get content following this heading
-                content_parts = []
-                current = heading.getnext()
-                
-                # Collect content until next heading or significant break
-                for _ in range(5):  # Limit to prevent runaway
-                    if current is None:
-                        break
-                    if current.tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-                        break
-                    
-                    text = current.text_content().strip()
-                    if text and len(text) > 10:
-                        content_parts.append(ScrapingUtils._clean_unicode_escapes(text))
-                    
-                    current = current.getnext()
-                
-                if content_parts:
-                    sections[heading_text] = ' '.join(content_parts)[:500]  # Truncate long content
-        
-        return sections
     
     @staticmethod
     def _extract_clean_text(tree) -> str:
