@@ -52,13 +52,37 @@ class ScrapingUtils:
         return text_content
         
     @staticmethod
-    def parse_degree_page(html: str, description_xpath: str) -> dict:
+    def parse_degree_page(html: str, description_xpath: str, snapshot_xpath: str) -> dict:
         tree = lxml_html.fromstring(html)
         description_element = tree.xpath(description_xpath)
         description = description_element[0].text_content().strip() if description_element else "No description found"
 
-        print(f"Extracted description: {description[:100]}...")  # Print first 100 characters
+        # find snapshot elements (paragraphs and buttons after the snapshot heading)
+        snapshot_elements = tree.xpath(snapshot_xpath)
+        snapshot_data = {}
+        
+        # Extract structured snapshot information
+        for element in snapshot_elements:
+            text = element.text_content().strip()
+            if text:
+                if element.tag == 'p' and ':' in text:
+                    # Parse key-value pairs like "Program Format: Face-to-Face"
+                    key, value = text.split(':', 1)
+                    snapshot_data[key.strip()] = value.strip()
+                elif element.tag == 'a' and 'button' in element.get('class', ''):
+                    # Extract button information
+                    button_text = text
+                    button_url = element.get('href', '')
+                    if 'buttons' not in snapshot_data:
+                        snapshot_data['buttons'] = []
+                    snapshot_data['buttons'].append({'text': button_text, 'url': button_url})
+        
+        # get all <p> tags in the html, extract text
+        paragraphs = tree.findall('.//p')
+        paragraph_texts = [p.text_content().strip() for p in paragraphs if p.text_content().strip()]
 
         return {
-            "description": description
+            "description": description,
+            "snapshot": snapshot_data,
+            "paragraphs": paragraph_texts
         }

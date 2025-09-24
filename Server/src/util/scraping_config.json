@@ -2,6 +2,7 @@
     "grad_admissions_list_url": "https://www.kennesaw.edu/degrees-programs/master-degrees/index.php",
     "grad_admissions_list_xpath": "//ul[@class='searchable_list link_list is_full']",
     "degree": {
-        "description_xpath": "//div[@class='two_col is_70 has_gap']//p[1]"
+        "description_xpath": "//div[@class='two_col is_70 has_gap']//p[1]",
+        "snapshot_xpath": "//h3[@id='snapshot']/parent::div/following-sibling::*[self::p or self::a]"
     }
 }

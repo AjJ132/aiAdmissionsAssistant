@@ -30,12 +30,24 @@ class ScrapingController:
             if not self.obtained_degrees:
                 print("No degrees obtained from scraping.")
                 return None
-            
+            degree_information = []
             # foreach degree, scrape page 
             # LIMIT to 1 for demo purposes
             for degree in self.obtained_degrees[:1]:
+            # for degree in self.obtained_degrees:
                 print(f"Scraping degree page: {degree['name']} - {degree['url']}")
-                self.scrapeDegreePage(degree['name'], degree['url'])
+                scraped_info = self.scrapeDegreePage(degree['name'], degree['url'])
+
+                degree_info = {
+                    'name': degree['name'],
+                    'url': degree['url'],
+                    **scraped_info
+                }
+                degree_information.append(degree_info)
+
+            #save to file
+            with open('debug_all_degrees.json', 'w') as f:
+                json.dump(degree_information, f, indent=4)
 
         except Exception as e:
             print(f"Error during scraping operation: {e}")
@@ -83,12 +95,22 @@ class ScrapingController:
             description_xpath = self.config.get("degree", {}).get("description_xpath", "")
             if not description_xpath:    
                 raise ValueError("Degree description XPath not found in config")
+            
+            snapshot_xpath = self.config.get("degree", {}).get("snapshot_xpath", "")
+            if not snapshot_xpath:    
+                raise ValueError("Degree snapshot XPath not found in config")
 
             # parse page
             degree_information = self.scraping_utils.parse_degree_page(
-                page_html,
-                description_xpath
+                html=page_html,
+                description_xpath=description_xpath,
+                snapshot_xpath=snapshot_xpath
             )
+
+            if not degree_information:
+                raise ValueError(f"No information parsed for degree: {degree_name}")
+            
+            return degree_information
 
         except Exception as e:
             print(f"Error fetching degree page for {degree_name}: {e}")
