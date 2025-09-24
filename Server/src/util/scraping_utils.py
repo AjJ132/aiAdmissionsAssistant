@@ -3,6 +3,7 @@ from lxml import html as lxml_html
 from typing import Dict, List, Union, Optional
 import json
 import codecs
+import html
 
 
 class ScrapingUtils:
@@ -12,10 +13,13 @@ class ScrapingUtils:
         """
         Clean Unicode characters and escape sequences in text, converting them to proper ASCII characters.
         Handles both literal Unicode characters and escape sequences like \u2019 (right single quotation mark) -> '
-        Also handles newlines and other whitespace characters.
+        Also handles newlines, HTML entities, and other whitespace characters.
         """
         if not text:
             return text
+        
+        # First decode HTML entities like &amp; -> &, &quot; -> ", etc.
+        text = html.unescape(text)
         
         # Common Unicode character mappings (for literal Unicode characters)
         unicode_char_mappings = {
@@ -310,26 +314,117 @@ class ScrapingUtils:
         """Extract related programs/degrees"""
         programs = []
         
-        # Look for related programs sections
-        related_sections = tree.xpath('//*[contains(text(), "Related") and (contains(text(), "Program") or contains(text(), "Degree"))]')
+        # Strategy 1: Look for "Related Degrees & Programs" section with cards
+        related_headings = tree.xpath('//*[contains(text(), "Related Degrees") or contains(text(), "Related Programs")]')
         
-        for section in related_sections:
-            container = section.getparent()
-            if container is not None:
-                # Look for links that might be programs
-                links = container.xpath('.//a[@href]')
-                for link in links:
-                    href = link.get('href')
+        for heading in related_headings:
+            # Find the parent section and look for cards structure
+            current = heading
+            for _ in range(8):  # Look up to 8 levels up to find the section
+                current = current.getparent()
+                if current is not None:
+                    # Look for cards div with ul/li structure
+                    cards_divs = current.xpath('.//div[contains(@class, "cards")]//ul//li//a[@href]')
+                    for link in cards_divs:
+                        href = link.get('href')
+                        # Skip navigation links and non-program links
+                        if not href or href.startswith('#') or 'navigation' in href.lower():
+                            continue
+                            
+                        # Look for title text in p tag with class "title" or just get text content
+                        title_elem = link.xpath('.//p[contains(@class, "title")]')
+                        if title_elem:
+                            text = title_elem[0].text_content().strip()
+                        else:
+                            text = link.text_content().strip()
+                        
+                        # Clean up text and validate
+                        if text and len(text) > 3 and text not in ['Sign Up', 'Learn More', 'Apply Now']:
+                            # Clean up the URL
+                            clean_url = href
+                            if href.startswith('http'):
+                                clean_url = href
+                            elif href.startswith('/'):
+                                clean_url = f"https://www.kennesaw.edu{href}"
+                            else:
+                                clean_url = f"https://www.kennesaw.edu/{href}"
+                            
+                            programs.append({
+                                'name': ScrapingUtils._clean_unicode_escapes(text),
+                                'url': clean_url
+                            })
+                    
+                    # If we found programs in this section, break out of parent traversal
+                    if programs:
+                        break
+        
+        # Strategy 2: Look for cards sections anywhere on the page that contain degree/program links
+        if not programs:
+            cards_sections = tree.xpath('//div[contains(@class, "cards")]//ul//li//a[@href]')
+            for link in cards_sections:
+                href = link.get('href')
+                # Skip navigation links and non-program links
+                if not href or href.startswith('#') or 'navigation' in href.lower():
+                    continue
+                
+                # Look for degree/program indicators in URL or skip catalog links
+                if ('degree' not in href.lower() and 'program' not in href.lower() and 
+                    'master' not in href.lower() and 'mba' not in href.lower() and
+                    'catalog.kennesaw.edu' not in href.lower()):
+                    continue
+                    
+                # Look for title text in p tag with class "title" or just get text content
+                title_elem = link.xpath('.//p[contains(@class, "title")]')
+                if title_elem:
+                    text = title_elem[0].text_content().strip()
+                else:
                     text = link.text_content().strip()
-                    if (href and text and 
-                        len(text) > 5 and 
-                        ('degree' in href.lower() or 'program' in href.lower())):
-                        programs.append({
-                            'name': ScrapingUtils._clean_unicode_escapes(text),
-                            'url': href
-                        })
+                
+                # Clean up text and validate
+                if text and len(text) > 3 and text not in ['Sign Up', 'Learn More', 'Apply Now']:
+                    # Clean up the URL
+                    clean_url = href
+                    if href.startswith('http'):
+                        clean_url = href
+                    elif href.startswith('/'):
+                        clean_url = f"https://www.kennesaw.edu{href}"
+                    else:
+                        clean_url = f"https://www.kennesaw.edu/{href}"
+                    
+                    programs.append({
+                        'name': ScrapingUtils._clean_unicode_escapes(text),
+                        'url': clean_url
+                    })
         
-        return programs[:5]  # Limit results
+        # Strategy 3: Fallback - Look for any section with "Related" in text
+        if not programs:
+            related_sections = tree.xpath('//*[contains(text(), "Related") and (contains(text(), "Program") or contains(text(), "Degree"))]')
+            
+            for section in related_sections:
+                container = section.getparent()
+                if container is not None:
+                    # Look for links that might be programs
+                    links = container.xpath('.//a[@href]')
+                    for link in links:
+                        href = link.get('href')
+                        text = link.text_content().strip()
+                        if (href and text and 
+                            len(text) > 5 and 
+                            ('degree' in href.lower() or 'program' in href.lower() or 'master' in href.lower())):
+                            programs.append({
+                                'name': ScrapingUtils._clean_unicode_escapes(text),
+                                'url': href if href.startswith('http') else f"https://www.kennesaw.edu{href}"
+                            })
+        
+        # Remove duplicates based on URL
+        seen_urls = set()
+        unique_programs = []
+        for program in programs:
+            if program['url'] not in seen_urls:
+                seen_urls.add(program['url'])
+                unique_programs.append(program)
+        
+        return unique_programs[:6]  # Limit results to 6
     
     @staticmethod
     def _extract_clean_text(tree) -> str:
