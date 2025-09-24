@@ -35,6 +35,25 @@ async def lambda_handler(event: dict, context):
                 'statusCode': 200,
                 'body': json.dumps({'message': result, 'scrape_duration_seconds': round(scrape_duration, 2)})
             }
+        elif route == "POST /chat":
+            chat_start_time = time.time()
+            logger.info("Starting chat/LLM operation...")
+            
+            # For now, return a placeholder response since LLM controller is empty
+            # TODO: Implement LLM controller functionality
+            # from src.controllers.llm_controller import LLMController
+            
+            chat_end_time = time.time()
+            chat_duration = chat_end_time - chat_start_time
+            logger.info(f"Chat operation completed in {chat_duration:.2f} seconds")
+            
+            return {
+                'statusCode': 200,
+                'body': json.dumps({
+                    'message': 'Chat endpoint is available but not yet implemented', 
+                    'chat_duration_seconds': round(chat_duration, 2)
+                })
+            }
         else:
             return {
                 'statusCode': 404,
