@@ -1,6 +1,7 @@
 from handler import lambda_handler
 import json
 import time
+import asyncio
 
 class MockLambdaContext:
     """Mock Lambda context for local testing"""
@@ -61,15 +62,14 @@ def main():
     )
     context = MockLambdaContext()
 
-    result = lambda_handler(event, context)
+    # Use asyncio.run since lambda_handler is now async
+    result = asyncio.run(lambda_handler(event, context))
     
     # Calculate and print total time
     end_time = time.time()
     total_time = end_time - start_time
-    print(f"Scraping operation completed in {total_time:.2f} seconds")
     
     print(f"Total execution time: {total_time:.2f} seconds")
-    print(result)
 
 
 if __name__ == "__main__":

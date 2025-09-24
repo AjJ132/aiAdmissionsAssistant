@@ -1,5 +1,6 @@
 import json
 import time
+import asyncio
 
 from typing import Dict, Any
 
@@ -8,7 +9,7 @@ from aws_lambda_powertools import Logger
 logger = Logger()
 
 @logger.inject_lambda_context
-def lambda_handler(event: dict, context):
+async def lambda_handler(event: dict, context):
     handler_start_time = time.time()
     try:
         # logger custom key logic. Add keys as needed
@@ -24,7 +25,7 @@ def lambda_handler(event: dict, context):
             
             from src.controllers.scraping_controller import ScrapingControllerFactory
             controller = ScrapingControllerFactory.createScrapingController()
-            result = controller.beginScrapingOperation()
+            result = await controller.beginScrapingOperation()
             
             scrape_end_time = time.time()
             scrape_duration = scrape_end_time - scrape_start_time
