@@ -4,6 +4,8 @@ import { useExternalResources } from './hooks/useExternalResources'
 import { HtmlContent } from './components/HtmlContent'
 import { ChatSidebar } from './components/ChatSidebar'
 import { DemoChatProvider } from './providers'
+import AdminDashboard from './components/admin/AdminDashboard'
+import { Button } from './components/ui/button'
 
 function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -18,12 +20,21 @@ function App() {
     return demoModeParam !== 'false'; // Default to true unless explicitly set to false
   };
 
+  // Get admin mode from URL parameters
+  // Usage: ?admin=true to show admin dashboard
+  const getAdminModeFromURL = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('admin') === 'true';
+  };
+
   const [useDemoMode, setUseDemoMode] = useState(getDemoModeFromURL);
+  const [showAdminDashboard, setShowAdminDashboard] = useState(getAdminModeFromURL);
 
   // Listen for URL parameter changes
   useEffect(() => {
     const handleURLChange = () => {
       setUseDemoMode(getDemoModeFromURL());
+      setShowAdminDashboard(getAdminModeFromURL());
     };
 
     // Listen for popstate events (back/forward navigation)
@@ -77,6 +88,28 @@ function App() {
     setChatWidth(width);
   };
 
+  const toggleAdminDashboard = () => {
+    const newShowAdmin = !showAdminDashboard;
+    setShowAdminDashboard(newShowAdmin);
+    
+    // Update URL to reflect admin mode
+    const url = new URL(window.location.href);
+    if (newShowAdmin) {
+      url.searchParams.set('admin', 'true');
+    } else {
+      url.searchParams.delete('admin');
+    }
+    window.history.pushState({}, '', url);
+  };
+
+  const handleAdminClose = () => {
+    setShowAdminDashboard(false);
+    
+    // Update URL to reflect admin mode
+    const url = new URL(window.location.href);
+    url.searchParams.delete('admin');
+    window.history.pushState({}, '', url);
+  };
 
   if (!resourcesLoaded && !resourceError) {
     return (
@@ -102,33 +135,75 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Main content from HTML */}
-      <div 
-        className="main-content"
-        style={{
-          marginRight: isChatOpen ? `${chatWidth}px` : '0',
-          transition: 'margin-right 0.2s ease-out'
-        }}
-      >
-        <HtmlContent 
-          htmlUrl="/grad_admin.html"
-          onContentLoaded={handleContentLoaded}
+      {/* Admin Toggle Button - Grey secondary button, positioned below nav */}
+      {!showAdminDashboard && (
+        <Button
+          onClick={toggleAdminDashboard}
+          className="fixed top-[68px] right-6 z-[1000] shadow-md hover:shadow-lg transition-all duration-200"
+          variant="secondary"
+          size="sm"
+        >
+          <svg 
+            className="w-4 h-4 mr-1.5" 
+            fill="none" 
+            stroke="currentColor" 
+            viewBox="0 0 24 24"
+          >
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" 
+            />
+            <path 
+              strokeLinecap="round" 
+              strokeLinejoin="round" 
+              strokeWidth={2} 
+              d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" 
+            />
+          </svg>
+          Chatbot Admin
+        </Button>
+      )}
+
+      {/* Conditional Content */}
+      {showAdminDashboard ? (
+        /* Admin Dashboard Mode */
+        <AdminDashboard 
+          onClose={handleAdminClose}
+          className="h-screen"
         />
-      </div>
-      
-      {/* Chat sidebar */}
-      <DemoChatProvider>
-        {(chat) => (
-          <ChatSidebar 
-            isOpen={isChatOpen}
-            onToggle={handleChatToggle}
-            onWidthChange={handleChatWidthChange}
-            isDemoMode={useDemoMode}
-            chatProvider={chat}
-          />
-        )}
-      </DemoChatProvider>
-      
+      ) : (
+        /* Normal Mode */
+        <>
+          {/* Main content from HTML */}
+          <div 
+            className="main-content"
+            style={{
+              marginRight: isChatOpen ? `${chatWidth}px` : '0',
+              transition: 'margin-right 0.2s ease-out'
+            }}
+          >
+            <HtmlContent 
+              htmlUrl="/grad_admin.html"
+              onContentLoaded={handleContentLoaded}
+            />
+          </div>
+          
+          {/* Chat sidebar */}
+          <DemoChatProvider>
+            {(chat) => (
+              <ChatSidebar 
+                isOpen={isChatOpen}
+                onToggle={handleChatToggle}
+                onWidthChange={handleChatWidthChange}
+                isDemoMode={useDemoMode}
+                chatProvider={chat}
+              />
+            )}
+          </DemoChatProvider>
+        </>
+      )}
     </div>
   )
 }
