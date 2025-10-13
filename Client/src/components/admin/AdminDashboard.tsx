@@ -24,36 +24,53 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ className, onClose }) => {
-  // Mock data for demonstration
-  const [responses, setResponses] = React.useState<ChatResponse[]>([
-    {
-      id: '1',
-      timestamp: new Date('2024-09-25T10:30:00'),
-      question: 'What is the deadline for graduate applications?',
-      originalResponse: 'The deadline is March 1st for all programs.',
-      status: 'pending',
-      reportedBy: 'student@ksu.edu',
-      category: 'Deadlines'
-    },
-    {
-      id: '2', 
-      timestamp: new Date('2024-09-25T11:15:00'),
-      question: 'What GPA do I need for the MBA program?',
-      originalResponse: 'You need a minimum GPA of 2.5.',
-      correctedResponse: 'You need a minimum GPA of 3.0 for the MBA program at KSU.',
-      status: 'corrected',
-      category: 'Requirements'
-    },
-    {
-      id: '3',
-      timestamp: new Date('2024-09-25T12:45:00'),
-      question: 'How do I submit my transcripts?',
-      originalResponse: 'Send transcripts by mail to the admissions office.',
-      correctedResponse: 'Submit official transcripts electronically through the National Student Clearinghouse or by mail to the Graduate Admissions Office.',
-      status: 'approved',
-      category: 'Application Process'
+  // Load reported issues from localStorage and merge with mock data
+  const loadReportedIssues = (): ChatResponse[] => {
+    const mockData = [
+      {
+        id: '2', 
+        timestamp: new Date('2024-09-25T11:15:00'),
+        question: 'What GPA do I need for the MBA program?',
+        originalResponse: 'You need a minimum GPA of 2.5.',
+        correctedResponse: 'You need a minimum GPA of 3.0 for the MBA program at KSU.',
+        status: 'corrected' as const,
+        category: 'Requirements'
+      },
+      {
+        id: '3',
+        timestamp: new Date('2024-09-25T12:45:00'),
+        question: 'How do I submit my transcripts?',
+        originalResponse: 'Send transcripts by mail to the admissions office.',
+        correctedResponse: 'Submit official transcripts electronically through the National Student Clearinghouse or by mail to the Graduate Admissions Office.',
+        status: 'approved' as const,
+        category: 'Application Process'
+      }
+    ]
+
+    try {
+      const reports = JSON.parse(localStorage.getItem('chatbot_reports') || '[]')
+      const reportedResponses = reports.map((report: any) => ({
+        id: report.messageId,
+        timestamp: new Date(report.timestamp),
+        question: report.question,
+        originalResponse: report.response,
+        status: 'pending' as const,
+        reportedBy: report.reportedBy,
+        category: 'General'
+      }))
+      
+      return [...reportedResponses, ...mockData]
+    } catch (error) {
+      return mockData
     }
-  ])
+  }
+
+  const [responses, setResponses] = React.useState<ChatResponse[]>(loadReportedIssues())
+
+  // Refresh reported issues when dashboard opens
+  React.useEffect(() => {
+    setResponses(loadReportedIssues())
+  }, [])
 
   const [selectedResponse, setSelectedResponse] = React.useState<ChatResponse | null>(null)
   const [correctionText, setCorrectionText] = React.useState('')
@@ -104,7 +121,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ className, onClose }) =
         {/* Header */}
         <div className="p-6 border-b border-border">
           <div className="flex items-center justify-between mb-4">
-            <h1 className="text-xl font-semibold">Chatbot Admin Dashboard</h1>
+            <h1 className="text-xl font-semibold">Admin Dashboard</h1>
             {onClose && (
               <Button variant="ghost" size="icon" onClick={onClose}>
                 ✕

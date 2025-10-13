@@ -7,17 +7,21 @@ import remarkGfm from 'remark-gfm';
 import type { Message } from '@/hooks/useChat';
 import { TypingIndicator } from './TypingIndicator';
 import { WelcomeMessage } from './WelcomeMessage';
+import { ReportIssueButton} from './ReportIssueButton';
+import type { ReportData } from './ReportIssueButton';
 
 interface MessageListProps {
   messages: Message[];
   isLoading: boolean;
   isSearching?: boolean;
+  onReportIssue?: (data: ReportData) => void;
 }
 
 export const MessageList: React.FC<MessageListProps> = ({
   messages,
   isLoading,
   isSearching = false,
+  onReportIssue,
 }) => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -29,6 +33,34 @@ export const MessageList: React.FC<MessageListProps> = ({
   useEffect(() => {
     scrollToBottom();
   }, [messages, isLoading]);
+
+  // Handle report issue
+  const handleReport = (data: ReportData) => {
+    console.log('Issue reported:', data);
+    
+    // Store in localStorage for demo (in production, send to API)
+    try {
+      const existingReports = JSON.parse(localStorage.getItem('chatbot_reports') || '[]');
+      existingReports.push(data);
+      localStorage.setItem('chatbot_reports', JSON.stringify(existingReports));
+      
+      // Call parent callback if provided
+      onReportIssue?.(data);
+    } catch (error) {
+      console.error('Error saving report:', error);
+    }
+  };
+
+  // Function to get the user's question for a bot response
+  const getUserQuestionForMessage = (messageIndex: number): string => {
+    // Look for the previous user message
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      if (messages[i].isUser) {
+        return messages[i].text;
+      }
+    }
+    return 'Question not found';
+  };
 
   if (messages.length === 0 && !isLoading) {
     return (
@@ -43,7 +75,7 @@ export const MessageList: React.FC<MessageListProps> = ({
   return (
     <ScrollArea className="flex-1 h-full">
       <div className="p-4 space-y-4">
-        {messages.map((message) => (
+        {messages.map((message, index) => (
           <div
             key={message.id}
             className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
@@ -63,9 +95,9 @@ export const MessageList: React.FC<MessageListProps> = ({
                   </AvatarFallback>
                 </Avatar>
               )}
-              <Card className={`${message.isUser ? 'bg-blue-600 text-white' : 'bg-gray-50 border-gray-200'} py-2`}>
-                <CardContent className="py-0 px-3 content-center items-center">
-                  {/* <div className="prose prose-sm max-w-none"> */}
+              <div className="flex flex-col gap-1">
+                <Card className={`${message.isUser ? 'bg-blue-600 text-white' : 'bg-gray-50 border-gray-200'} py-2`}>
+                  <CardContent className="py-0 px-3 content-center items-center">
                     <ReactMarkdown
                       remarkPlugins={[remarkGfm]}
                       components={{
@@ -128,23 +160,35 @@ export const MessageList: React.FC<MessageListProps> = ({
                     >
                       {message.text}
                     </ReactMarkdown>
-                  {/* </div> */}
-                  {message.sources && message.sources.length > 0 && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
-                      <p className="text-xs text-gray-500 mb-1">Sources:</p>
-                      <div className="space-y-1">
-                        {message.sources.map((source, index) => (
-                          <div key={index} className="text-xs text-blue-600 hover:text-blue-800">
-                            <a href={source} target="_blank" rel="noopener noreferrer">
-                              {source}
-                            </a>
-                          </div>
-                        ))}
+                    {message.sources && message.sources.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-gray-200">
+                        <p className="text-xs text-gray-500 mb-1">Sources:</p>
+                        <div className="space-y-1">
+                          {message.sources.map((source, index) => (
+                            <div key={index} className="text-xs text-blue-600 hover:text-blue-800">
+                              <a href={source} target="_blank" rel="noopener noreferrer">
+                                {source}
+                              </a>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Report Issue Button - Only for bot responses */}
+                {!message.isUser && !isSearching && (
+                  <div className="ml-2">
+                    <ReportIssueButton
+                      messageId={message.id}
+                      question={getUserQuestionForMessage(index)}
+                      response={message.text}
+                      onReport={handleReport}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         ))}
