@@ -1,3 +1,4 @@
+aiohttp==3.10.11
 aws_lambda_powertools==3.20.0
 babel==2.17.0
 beautifulsoup4==4.13.5

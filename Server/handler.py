@@ -1,4 +1,5 @@
 import json
+import asyncio
 
 from typing import Dict, Any
 
@@ -18,7 +19,10 @@ def lambda_handler(event: dict, context):
         if route == "POST /scrape":
             from src.controllers.scraping_controller import ScrapingControllerFactory
             controller = ScrapingControllerFactory.createScrapingController()
-            result = controller.beginScrapingOperation()
+            
+            # Run the async operation in the event loop
+            result = asyncio.run(controller.beginScrapingOperation())
+            
             return {
                 'statusCode': 200,
                 'body': json.dumps({'message': result})
