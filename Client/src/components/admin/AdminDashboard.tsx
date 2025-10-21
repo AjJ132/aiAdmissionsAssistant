@@ -1,11 +1,12 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import * as React from 'react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardAction } from '@/components/ui/card'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 
 interface ChatResponse {
   id: string
@@ -61,6 +62,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ className, onClose }) =
       
       return [...reportedResponses, ...mockData]
     } catch (error) {
+      console.error('Error loading reported issues from localStorage:', error)
       return mockData
     }
   }
