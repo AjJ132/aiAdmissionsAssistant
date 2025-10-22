@@ -45,17 +45,19 @@ class ScrapingUtils:
         for unicode_char, replacement in unicode_char_mappings.items():
             text = text.replace(unicode_char, replacement)
         
-        # Apply escape sequence mappings
+        # Apply escape sequence mappings (for strings containing literal \uXXXX patterns)
         for unicode_seq, replacement in unicode_escape_mappings.items():
             text = text.replace(unicode_seq, replacement)
         
-        # Handle any remaining Unicode escapes using codecs
-        try:
-            # This will decode any remaining \uXXXX sequences
-            text = codecs.decode(text, 'unicode_escape')
-        except (UnicodeDecodeError, UnicodeError):
-            # If decoding fails, return the text as-is
-            pass
+        # Only attempt to decode escape sequences if the string contains them
+        # This prevents mangling of already-decoded UTF-8 characters
+        if r'\u' in text or r'\x' in text:
+            try:
+                # This will decode any remaining \uXXXX or \xXX sequences
+                text = codecs.decode(text, 'unicode_escape')
+            except (UnicodeDecodeError, UnicodeError):
+                # If decoding fails, return the text as-is
+                pass
         
         # Clean up newlines and excessive whitespace
         # Replace literal \n with spaces
@@ -108,7 +110,7 @@ class ScrapingUtils:
             elements = tree.xpath(selector)
             if elements:
                 title = elements[0].text_content().strip()
-                if title and len(title) > 10:  # Reasonable title length
+                if title and len(title) >= 3:  # Reasonable minimum title length
                     return ScrapingUtils._clean_unicode_escapes(title)
         
         return "Title not found"

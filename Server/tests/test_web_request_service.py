@@ -25,7 +25,7 @@ class TestWebRequestService:
             mock_response.__aenter__.return_value = mock_response
             mock_response.__aexit__.return_value = None
             
-            mock_session.get.return_value = mock_response
+            mock_session.get = Mock(return_value=mock_response)
             mock_session.close = AsyncMock()
             mock_session_class.return_value = mock_session
             
@@ -49,7 +49,7 @@ class TestWebRequestService:
         mock_response.__aenter__.return_value = mock_response
         mock_response.__aexit__.return_value = None
         
-        mock_session.get.return_value = mock_response
+        mock_session.get = Mock(return_value=mock_response)
         
         result = await service.fetchPage(test_url, mock_session)
         
@@ -71,7 +71,7 @@ class TestWebRequestService:
             mock_response.__aenter__.return_value = mock_response
             mock_response.__aexit__.return_value = None
             
-            mock_session.get.return_value = mock_response
+            mock_session.get = Mock(return_value=mock_response)
             mock_session.close = AsyncMock()
             mock_session_class.return_value = mock_session
             
@@ -93,7 +93,7 @@ class TestWebRequestService:
             mock_response.__aenter__.return_value = mock_response
             mock_response.__aexit__.return_value = None
             
-            mock_session.get.return_value = mock_response
+            mock_session.get = Mock(return_value=mock_response)
             mock_session.close = AsyncMock()
             mock_session_class.return_value = mock_session
             
@@ -108,7 +108,7 @@ class TestWebRequestService:
         
         with patch('aiohttp.ClientSession') as mock_session_class:
             mock_session = AsyncMock()
-            mock_session.get.side_effect = aiohttp.ClientError("Connection failed")
+            mock_session.get = Mock(side_effect=aiohttp.ClientError("Connection failed"))
             mock_session.close = AsyncMock()
             mock_session_class.return_value = mock_session
             
@@ -125,7 +125,7 @@ class TestWebRequestService:
         
         with patch('aiohttp.ClientSession') as mock_session_class:
             mock_session = AsyncMock()
-            mock_session.get.side_effect = aiohttp.ServerTimeoutError("Request timeout")
+            mock_session.get = Mock(side_effect=aiohttp.ServerTimeoutError("Request timeout"))
             mock_session.close = AsyncMock()
             mock_session_class.return_value = mock_session
             
@@ -145,7 +145,7 @@ class TestWebRequestService:
             mock_response.__aenter__.return_value = mock_response
             mock_response.__aexit__.return_value = None
             
-            mock_session.get.return_value = mock_response
+            mock_session.get = Mock(return_value=mock_response)
             mock_session.close = AsyncMock()
             mock_session_class.return_value = mock_session
             
@@ -227,7 +227,7 @@ class TestWebRequestService:
                 mock_response.__aenter__.return_value = mock_response
                 mock_response.__aexit__.return_value = None
                 
-                mock_session.get.return_value = mock_response
+                mock_session.get = Mock(return_value=mock_response)
                 mock_session.close = AsyncMock()
                 mock_session_class.return_value = mock_session
                 
