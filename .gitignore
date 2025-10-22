@@ -28,3 +28,7 @@ terraform.rc
 
 # Partial or generated files
 *.backup
+
+# IDE
+.vscode/
+.idea/
