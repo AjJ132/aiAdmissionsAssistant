@@ -1,5 +1,6 @@
 import json
 import os
+import asyncio
 from flask import Flask, request, jsonify
 from handler import lambda_handler
 
@@ -71,8 +72,8 @@ def scrape():
         # Create mock context
         context = MockLambdaContext()
         
-        # Call the Lambda handler
-        response = lambda_handler(event, context)
+        # Call the Lambda handler (async)
+        response = asyncio.run(lambda_handler(event, context))
         
         # Extract status code and body
         status_code = response.get('statusCode', 200)
@@ -88,3 +89,49 @@ def scrape():
     except Exception as e:
         print(f"Error in scrape endpoint: {str(e)}")
         return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """Handle chat/LLM endpoint"""
+    try:
+        # Get request body
+        body = None
+        if request.is_json:
+            body = json.dumps(request.get_json())
+        elif request.data:
+            body = request.data.decode('utf-8')
+        
+        # Create Lambda event
+        event = create_lambda_event(
+            method="POST",
+            path="/chat",
+            query_params=dict(request.args),
+            body=body,
+            headers=dict(request.headers)
+        )
+        
+        # Create mock context
+        context = MockLambdaContext()
+        
+        # Call the Lambda handler (async)
+        response = asyncio.run(lambda_handler(event, context))
+        
+        # Extract status code and body
+        status_code = response.get('statusCode', 200)
+        response_body = response.get('body', '{}')
+        
+        # Parse response body if it's a JSON string
+        try:
+            parsed_body = json.loads(response_body)
+            return jsonify(parsed_body), status_code
+        except (json.JSONDecodeError, TypeError):
+            return response_body, status_code
+            
+    except Exception as e:
+        print(f"Error in chat endpoint: {str(e)}")
+        return jsonify({"error": "Internal server error", "message": str(e)}), 500
+
+
+if __name__ == '__main__':
+    app.run(host='127.0.0.1', port=5000, debug=True)

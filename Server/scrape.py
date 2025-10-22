@@ -1,5 +1,7 @@
 from handler import lambda_handler
 import json
+import time
+import asyncio
 
 class MockLambdaContext:
     """Mock Lambda context for local testing"""
@@ -47,6 +49,10 @@ def create_lambda_event(method, path, query_params=None, body=None, headers=None
 
 
 def main():
+    # Start timing
+    start_time = time.time()
+    print("Starting scraping operation...")
+    
     event = create_lambda_event(
         method="POST",
         path="/scrape",
@@ -56,9 +62,14 @@ def main():
     )
     context = MockLambdaContext()
 
-    result = lambda_handler(event, context)
-
-    print(result)
+    # Use asyncio.run since lambda_handler is now async
+    result = asyncio.run(lambda_handler(event, context))
+    
+    # Calculate and print total time
+    end_time = time.time()
+    total_time = end_time - start_time
+    
+    print(f"Total execution time: {total_time:.2f} seconds")
 
 
 if __name__ == "__main__":
