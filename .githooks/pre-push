@@ -43,11 +43,18 @@ if ! command -v pytest &> /dev/null; then
     fi
 fi
 
+# Ensure test dependencies are installed
+if [ -f "requirements-test.txt" ]; then
+    echo -e "${GREEN}Ensuring test dependencies are installed...${NC}"
+    pip install -q -r requirements-test.txt
+fi
+
 # Run the tests
 echo -e "${GREEN}Running Server tests...${NC}\n"
 
-# Run pytest with minimal output
-if pytest -q --tb=short; then
+# Run pytest without coverage for pre-push (faster)
+# This overrides the pytest.ini settings
+if pytest -q --tb=short --no-cov 2>/dev/null || pytest -q --tb=short; then
     echo -e "\n${GREEN}✓ All tests passed! Proceeding with push...${NC}\n"
     exit 0
 else
