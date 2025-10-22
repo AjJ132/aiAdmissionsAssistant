@@ -1,102 +1,77 @@
 #!/bin/bash
 
-# Deploy script for AI Admissions Assistant Lambda
-# This script builds the deployment packages and applies Terraform configuration
-
 set -e  # Exit on any error
 
-PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-TERRAFORM_DIR="$PROJECT_ROOT/terraform"
+echo "=========================================="
+echo "AI Admissions Assistant Deployment Script"
+echo "=========================================="
 
-echo "🚀 Starting deployment process..."
-echo "Project root: $PROJECT_ROOT"
-echo "Terraform directory: $TERRAFORM_DIR"
-echo ""
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-# Step 1: Run the build script
-echo "📦 Step 1: Building deployment packages..."
-if [ -f "$PROJECT_ROOT/build.sh" ]; then
-    cd "$PROJECT_ROOT"
-    ./build.sh
-    if [ $? -ne 0 ]; then
-        echo "❌ Build failed! Exiting."
-        exit 1
-    fi
-    echo "✅ Build completed successfully"
-else
-    echo "❌ build.sh not found in $PROJECT_ROOT"
-    exit 1
-fi
+# Configuration
+PROJECT_NAME="ai-admissions-assistant"
+BUILD_DIR="build"
+PACKAGE_DIR="${BUILD_DIR}/package"
+ZIP_FILE="${BUILD_DIR}/lambda_deployment.zip"
 
-echo ""
+# Clean previous build
+echo -e "${YELLOW}Cleaning previous build...${NC}"
+rm -rf ${BUILD_DIR}
+mkdir -p ${PACKAGE_DIR}
 
-# Step 2: Initialize Terraform if needed
-echo "🔧 Step 2: Checking Terraform initialization..."
-cd "$TERRAFORM_DIR"
+# Install dependencies
+echo -e "${YELLOW}Installing Python dependencies...${NC}"
+pip install -r requirements.txt -t ${PACKAGE_DIR} --upgrade
 
-if [ ! -d ".terraform" ]; then
-    echo "Initializing Terraform..."
-    terraform init
-    if [ $? -ne 0 ]; then
-        echo "❌ Terraform init failed! Exiting."
-        exit 1
-    fi
-    echo "✅ Terraform initialized successfully"
-else
-    echo "✅ Terraform already initialized"
-fi
+# Copy application code
+echo -e "${YELLOW}Copying application code...${NC}"
+cp handler.py ${PACKAGE_DIR}/
+cp -r src ${PACKAGE_DIR}/
 
-echo ""
+# Create deployment package
+echo -e "${YELLOW}Creating deployment package...${NC}"
+cd ${PACKAGE_DIR}
+zip -r ../${ZIP_FILE##*/} . -q
+cd ../..
 
-# Step 3: Validate Terraform configuration
-echo "🔍 Step 3: Validating Terraform configuration..."
-terraform validate
-if [ $? -ne 0 ]; then
-    echo "❌ Terraform validation failed! Exiting."
-    exit 1
-fi
-echo "✅ Terraform configuration is valid"
+# Get the absolute path of the zip file
+ZIP_PATH=$(pwd)/${ZIP_FILE}
+echo -e "${GREEN}Deployment package created: ${ZIP_PATH}${NC}"
+echo -e "${GREEN}Package size: $(du -h ${ZIP_FILE} | cut -f1)${NC}"
 
-echo ""
+# Run Terraform
+echo -e "${YELLOW}Running Terraform...${NC}"
+cd terraform
 
-# Step 4: Plan Terraform deployment (optional, for visibility)
-echo "📋 Step 4: Planning Terraform deployment..."
-terraform plan -out=tfplan
-if [ $? -ne 0 ]; then
-    echo "❌ Terraform plan failed! Exiting."
-    exit 1
-fi
-echo "✅ Terraform plan completed"
+# Initialize Terraform (in case providers need updating)
+echo -e "${YELLOW}Initializing Terraform...${NC}"
+terraform init
 
-echo ""
+# Plan the deployment
+echo -e "${YELLOW}Planning Terraform deployment...${NC}"
+terraform plan -var="lambda_zip_path=${ZIP_PATH}"
 
-# Step 5: Apply Terraform configuration
-echo "🚀 Step 5: Applying Terraform configuration..."
-echo "This will create/update AWS resources..."
 
-terraform apply -auto-approve tfplan
-if [ $? -ne 0 ]; then
-    echo "❌ Terraform apply failed! Exiting."
-    exit 1
-fi
+terraform apply -var="lambda_zip_path=${ZIP_PATH}" -auto-approve
 
-# Clean up plan file
-rm -f tfplan
-
-echo ""
-echo "🎉 Deployment completed successfully!"
-echo ""
+echo -e "${GREEN}=========================================="
+echo -e "Deployment completed successfully!"
+echo -e "==========================================${NC}"
 
 # Display outputs
-echo "📊 Deployment Information:"
-echo "=========================="
-terraform output -json | jq -r 'to_entries[] | "\(.key): \(.value.value)"' 2>/dev/null || terraform output
+echo -e "${GREEN}Deployment Information:${NC}"
+terraform output
 
-echo ""
-echo "✅ Your AI Admissions Assistant is now deployed!"
-echo "🌐 Use the API Gateway URL above to access your application"
-echo ""
-echo "💡 Useful commands:"
-echo "   - View logs: aws logs tail /aws/lambda/\$(terraform output -raw lambda_function_name) --follow"
-echo "   - Test endpoint: curl \$(terraform output -raw api_gateway_url)"
-echo "   - Destroy resources: terraform destroy"
+# Save outputs to file
+terraform output -json > ../deployment-info.json
+echo -e "${GREEN}Deployment info saved to deployment-info.json${NC}"
+
+fi
+
+cd ..
+
+echo -e "${GREEN}Done!${NC}"

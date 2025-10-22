@@ -52,7 +52,7 @@ function App() {
   // Set favicon
   useEffect(() => {
     const faviconURL = 'scrappyhead.png';
-    let favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
+    const favicon = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null;
     if (favicon) {
       favicon.href = faviconURL;
     } else {

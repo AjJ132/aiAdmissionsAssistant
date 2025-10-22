@@ -1,10 +1,47 @@
-locals {
-  project_name = "ai-admissions-assistant-svc-${var.environment}"
+terraform {
+  required_version = ">= 1.0"
+  
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
 }
 
-# IAM Role for Lambda execution
-resource "aws_iam_role" "lambda_execution_role" {
-  name = "${local.project_name}-lambda-execution-role-${var.environment}"
+provider "aws" {
+  region = var.aws_region
+}
+
+# Lambda Function
+resource "aws_lambda_function" "api_lambda" {
+  filename         = var.lambda_zip_path
+  function_name    = "${var.project_name}-${var.environment}"
+  role            = aws_iam_role.lambda_role.arn
+  handler         = "handler.lambda_handler"
+  source_code_hash = filebase64sha256(var.lambda_zip_path)
+  runtime         = "python3.13"
+  timeout         = 30
+  memory_size     = 512
+
+  environment {
+    variables = {
+      ENVIRONMENT    = var.environment
+      OPENAI_API_KEY = var.openai_api_key
+    }
+  }
+
+  layers = var.lambda_layer_arns
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# IAM Role for Lambda
+resource "aws_iam_role" "lambda_role" {
+  name = "${var.project_name}-lambda-role-${var.environment}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -18,147 +55,87 @@ resource "aws_iam_role" "lambda_execution_role" {
       }
     ]
   })
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
-# IAM Policy attachment for Lambda basic execution
+# Attach basic execution policy
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
+  role       = aws_iam_role.lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-  role       = aws_iam_role.lambda_execution_role.name
 }
 
-# Lambda Layer for dependencies
-resource "aws_lambda_layer_version" "dependencies" {
-  filename         = "${path.module}/../dist/dependencies.zip"
-  layer_name       = "${local.project_name}-dependencies"
-  source_code_hash = data.archive_file.dependencies.output_base64sha256
+# CloudWatch Log Group
+resource "aws_cloudwatch_log_group" "lambda_log_group" {
+  name              = "/aws/lambda/${aws_lambda_function.api_lambda.function_name}"
+  retention_in_days = 7
 
-  compatible_runtimes = ["python3.11"]
-  description         = "Python dependencies layer"
-
-  depends_on = [data.archive_file.dependencies]
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
-# Archive for dependencies
-data "archive_file" "dependencies" {
-  type        = "zip"
-  source_dir  = "${path.module}/../dist/python"
-  output_path = "${path.module}/../dist/dependencies.zip"
-}
+# API Gateway HTTP API
+resource "aws_apigatewayv2_api" "http_api" {
+  name          = "${var.project_name}-api-${var.environment}"
+  protocol_type = "HTTP"
 
-# Archive for Lambda function code
-data "archive_file" "lambda_function" {
-  type        = "zip"
-  source_dir  = "${path.module}/../src"
-  output_path = "${path.module}/../dist/lambda_function.zip"
-  excludes = [
-    "__pycache__/",
-    "*.pyc"
-  ]
-}
-
-# Lambda function
-resource "aws_lambda_function" "main" {
-  filename         = data.archive_file.lambda_function.output_path
-  function_name    = "${local.project_name}"
-  role            = aws_iam_role.lambda_execution_role.arn
-  handler         = "handler.lambda_handler"
-  source_code_hash = data.archive_file.lambda_function.output_base64sha256
-  runtime         = "python3.13"
-
-  layers = [aws_lambda_layer_version.dependencies.arn]
-
-  environment {
-    variables = {
-      ENVIRONMENT = var.environment
-    }
+  cors_configuration {
+    allow_origins = ["*"]
+    allow_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    allow_headers = ["content-type", "authorization", "x-amz-date", "x-api-key", "x-amz-security-token"]
+    max_age       = 300
   }
 
-  depends_on = [
-    aws_iam_role_policy_attachment.lambda_basic_execution,
-    aws_cloudwatch_log_group.lambda_logs
-  ]
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
-# CloudWatch Log Group for Lambda
-resource "aws_cloudwatch_log_group" "lambda_logs" {
-  name              = "/aws/lambda/${local.project_name}-${var.environment}"
-  retention_in_days = 14
+# API Gateway Integration
+resource "aws_apigatewayv2_integration" "lambda_integration" {
+  api_id           = aws_apigatewayv2_api.http_api.id
+  integration_type = "AWS_PROXY"
+  integration_uri  = aws_lambda_function.api_lambda.invoke_arn
+  integration_method = "POST"
+  payload_format_version = "2.0"
 }
 
-# API Gateway REST API
-resource "aws_api_gateway_rest_api" "main" {
-  name        = "${local.project_name}-api-${var.environment}"
-  description = "API Gateway for ${local.project_name}"
+# API Gateway Routes
+resource "aws_apigatewayv2_route" "scrape_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /scrape"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
-# API Gateway Resource (proxy)
-resource "aws_api_gateway_resource" "proxy" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
-  parent_id   = aws_api_gateway_rest_api.main.root_resource_id
-  path_part   = "{proxy+}"
-}
-
-# API Gateway Method (ANY)
-resource "aws_api_gateway_method" "proxy" {
-  rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_resource.proxy.id
-  http_method   = "ANY"
-  authorization = "NONE"
-}
-
-# API Gateway Integration with Lambda
-resource "aws_api_gateway_integration" "lambda" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_method.proxy.resource_id
-  http_method = aws_api_gateway_method.proxy.http_method
-
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.main.invoke_arn
-}
-
-# API Gateway Method for root
-resource "aws_api_gateway_method" "proxy_root" {
-  rest_api_id   = aws_api_gateway_rest_api.main.id
-  resource_id   = aws_api_gateway_rest_api.main.root_resource_id
-  http_method   = "ANY"
-  authorization = "NONE"
-}
-
-# API Gateway Integration for root
-resource "aws_api_gateway_integration" "lambda_root" {
-  rest_api_id = aws_api_gateway_rest_api.main.id
-  resource_id = aws_api_gateway_method.proxy_root.resource_id
-  http_method = aws_api_gateway_method.proxy_root.http_method
-
-  integration_http_method = "POST"
-  type                    = "AWS_PROXY"
-  uri                     = aws_lambda_function.main.invoke_arn
-}
-
-# API Gateway Deployment
-resource "aws_api_gateway_deployment" "main" {
-  depends_on = [
-    aws_api_gateway_integration.lambda,
-    aws_api_gateway_integration.lambda_root,
-  ]
-
-  rest_api_id = aws_api_gateway_rest_api.main.id
+resource "aws_apigatewayv2_route" "chat_route" {
+  api_id    = aws_apigatewayv2_api.http_api.id
+  route_key = "POST /chat"
+  target    = "integrations/${aws_apigatewayv2_integration.lambda_integration.id}"
 }
 
 # API Gateway Stage
-resource "aws_api_gateway_stage" "main" {
-  deployment_id = aws_api_gateway_deployment.main.id
-  rest_api_id   = aws_api_gateway_rest_api.main.id
-  stage_name    = var.environment
+resource "aws_apigatewayv2_stage" "default_stage" {
+  api_id      = aws_apigatewayv2_api.http_api.id
+  name        = "$default"
+  auto_deploy = true
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
 }
 
-# Lambda permission for API Gateway
-resource "aws_lambda_permission" "api_gw" {
-  statement_id  = "AllowExecutionFromAPIGateway"
+# Lambda Permission for API Gateway
+resource "aws_lambda_permission" "api_gateway_invoke" {
+  statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.main.function_name
+  function_name = aws_lambda_function.api_lambda.function_name
   principal     = "apigateway.amazonaws.com"
-
-  source_arn = "${aws_api_gateway_rest_api.main.execution_arn}/*/*"
+  source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
