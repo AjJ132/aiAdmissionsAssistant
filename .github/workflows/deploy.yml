@@ -55,6 +55,12 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       
+      - name: Setup Terraform
+        if: github.event_name == 'push'  # Only setup Terraform for deployments
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.0"  # Specify a stable version
+      
       - name: Deploy to AWS
         if: github.event_name == 'push'  # Deploy on any push for testing
         run: |
