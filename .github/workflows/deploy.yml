@@ -14,9 +14,64 @@ on:
       - 'Server/**'
 
 jobs:
-  deploy:
-    name: Build, Test, and Deploy Python Server
+  build:
+    name: Build Lambda Packages
     runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./Server
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: 'Server/requirements*.txt'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Build Lambda layers
+        run: |
+          chmod +x build_layer.sh
+          ./build_layer.sh
+      
+      - name: Create deployment package
+        run: |
+          # Create package directory
+          mkdir -p build/package
+          
+          # Copy application code only (no dependencies)
+          cp handler.py build/package/
+          cp -r src build/package/
+          
+          # Create deployment package
+          cd build/package
+          zip -r ../lambda_deployment.zip . -q
+          cd ../..
+      
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: lambda-packages
+          path: |
+            Server/build/lambda_deployment.zip
+            Server/build/lambda_layer_aws.zip
+            Server/build/lambda_layer_app.zip
+            Server/build/lambda_layer_scraping.zip
+          retention-days: 1
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: build
     
     defaults:
       run:
@@ -54,19 +109,88 @@ jobs:
           fail_ci_if_error: false
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+  deploy:
+    name: Deploy to AWS
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.event_name == 'push'  # Only deploy on push events
+    
+    defaults:
+      run:
+        working-directory: ./Server
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: lambda-packages
+          path: Server/build
       
       - name: Setup Terraform
-        if: github.event_name == 'push'  # Only setup Terraform for deployments
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: "1.9.0"  # Specify a stable version
+          terraform_version: "1.9.0"
       
       - name: Deploy to AWS
-        if: github.event_name == 'push'  # Deploy on any push for testing
         run: |
-          chmod +x deploy.sh
-          ./deploy.sh
+          # Get the absolute path of the zip files
+          ZIP_PATH=$(pwd)/build/lambda_deployment.zip
+          AWS_LAYER_ZIP_PATH=$(pwd)/build/lambda_layer_aws.zip
+          APP_LAYER_ZIP_PATH=$(pwd)/build/lambda_layer_app.zip
+          SCRAPING_LAYER_ZIP_PATH=$(pwd)/build/lambda_layer_scraping.zip
+          
+          echo "Deployment package: ${ZIP_PATH}"
+          echo "Package size: $(du -h build/lambda_deployment.zip | cut -f1)"
+          echo "AWS Layer: ${AWS_LAYER_ZIP_PATH}"
+          echo "AWS Layer size: $(du -h build/lambda_layer_aws.zip | cut -f1)"
+          echo "App Layer: ${APP_LAYER_ZIP_PATH}"
+          echo "App Layer size: $(du -h build/lambda_layer_app.zip | cut -f1)"
+          echo "Scraping Layer: ${SCRAPING_LAYER_ZIP_PATH}"
+          echo "Scraping Layer size: $(du -h build/lambda_layer_scraping.zip | cut -f1)"
+          
+          # Run Terraform
+          cd terraform
+          
+          # Initialize Terraform
+          terraform init
+          
+          # Plan the deployment
+          terraform plan \
+            -var="lambda_zip_path=${ZIP_PATH}" \
+            -var="lambda_layer_aws_zip_path=${AWS_LAYER_ZIP_PATH}" \
+            -var="lambda_layer_app_zip_path=${APP_LAYER_ZIP_PATH}" \
+            -var="lambda_layer_scraping_zip_path=${SCRAPING_LAYER_ZIP_PATH}"
+          
+          # Apply the deployment
+          terraform apply \
+            -var="lambda_zip_path=${ZIP_PATH}" \
+            -var="lambda_layer_aws_zip_path=${AWS_LAYER_ZIP_PATH}" \
+            -var="lambda_layer_app_zip_path=${APP_LAYER_ZIP_PATH}" \
+            -var="lambda_layer_scraping_zip_path=${SCRAPING_LAYER_ZIP_PATH}" \
+            -auto-approve
+          
+          # Display outputs
+          echo "=========================================="
+          echo "Deployment completed successfully!"
+          echo "=========================================="
+          terraform output
+          
+          # Save outputs to file
+          terraform output -json > ../deployment-info.json
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_DEFAULT_REGION: ${{ secrets.AWS_DEFAULT_REGION }}
+      
+      - name: Upload deployment info
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: deployment-info
+          path: Server/deployment-info.json
+          retention-days: 30
+

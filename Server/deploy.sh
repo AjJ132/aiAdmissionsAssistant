@@ -98,8 +98,6 @@ terraform output
 terraform output -json > ../deployment-info.json
 echo -e "${GREEN}Deployment info saved to deployment-info.json${NC}"
 
-fi
-
 cd ..
 
 echo -e "${GREEN}Done!${NC}"
