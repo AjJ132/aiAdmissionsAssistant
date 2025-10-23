@@ -13,7 +13,7 @@ class TestLambdaHandler:
     @pytest.mark.unit
     def test_handler_scrape_route_success(self, sample_lambda_event, mock_lambda_context):
         """Test successful scraping route handling"""
-        with patch('handler.ScrapingControllerFactory') as mock_factory, \
+        with patch('src.controllers.scraping_controller.ScrapingControllerFactory') as mock_factory, \
              patch('handler.asyncio.run') as mock_asyncio_run:
             
             # Setup mocks
@@ -60,7 +60,7 @@ class TestLambdaHandler:
     @pytest.mark.unit
     def test_handler_exception_handling(self, sample_lambda_event, mock_lambda_context):
         """Test handler exception handling"""
-        with patch('handler.ScrapingControllerFactory') as mock_factory:
+        with patch('src.controllers.scraping_controller.ScrapingControllerFactory') as mock_factory:
             mock_factory.createScrapingController.side_effect = Exception("Test error")
             
             response = lambda_handler(sample_lambda_event, mock_lambda_context)
@@ -71,7 +71,7 @@ class TestLambdaHandler:
     @pytest.mark.unit
     def test_handler_scraping_controller_exception(self, sample_lambda_event, mock_lambda_context):
         """Test handler when scraping controller raises exception"""
-        with patch('handler.ScrapingControllerFactory') as mock_factory, \
+        with patch('src.controllers.scraping_controller.ScrapingControllerFactory') as mock_factory, \
              patch('handler.asyncio.run') as mock_asyncio_run:
             
             mock_controller = Mock()

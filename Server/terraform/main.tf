@@ -13,6 +13,45 @@ provider "aws" {
   region = var.aws_region
 }
 
+# Reference existing OpenAI API Key from Secrets Manager
+data "aws_secretsmanager_secret" "openai_api_key" {
+  name = "${var.project_name}-openai-api-key-${var.environment}"
+}
+
+data "aws_secretsmanager_secret_version" "openai_api_key" {
+  secret_id = data.aws_secretsmanager_secret.openai_api_key.id
+}
+
+# Lambda Layer for AWS SDK dependencies
+resource "aws_lambda_layer_version" "aws_sdk_layer" {
+  filename            = var.lambda_layer_aws_zip_path
+  layer_name          = "${var.project_name}-aws-sdk-${var.environment}"
+  compatible_runtimes = ["python3.13"]
+  source_code_hash    = filebase64sha256(var.lambda_layer_aws_zip_path)
+
+  description = "AWS SDK dependencies for ${var.project_name}"
+}
+
+# Lambda Layer for app dependencies
+resource "aws_lambda_layer_version" "app_dependencies_layer" {
+  filename            = var.lambda_layer_app_zip_path
+  layer_name          = "${var.project_name}-app-dependencies-${var.environment}"
+  compatible_runtimes = ["python3.13"]
+  source_code_hash    = filebase64sha256(var.lambda_layer_app_zip_path)
+
+  description = "Application dependencies for ${var.project_name}"
+}
+
+# Lambda Layer for scraping dependencies
+resource "aws_lambda_layer_version" "scraping_dependencies_layer" {
+  filename            = var.lambda_layer_scraping_zip_path
+  layer_name          = "${var.project_name}-scraping-dependencies-${var.environment}"
+  compatible_runtimes = ["python3.13"]
+  source_code_hash    = filebase64sha256(var.lambda_layer_scraping_zip_path)
+
+  description = "Web scraping dependencies for ${var.project_name}"
+}
+
 # Lambda Function
 resource "aws_lambda_function" "api_lambda" {
   filename         = var.lambda_zip_path
@@ -26,12 +65,16 @@ resource "aws_lambda_function" "api_lambda" {
 
   environment {
     variables = {
-      ENVIRONMENT    = var.environment
-      OPENAI_API_KEY = var.openai_api_key
+      ENVIRONMENT           = var.environment
+      OPENAI_API_KEY_SECRET = data.aws_secretsmanager_secret.openai_api_key.name
     }
   }
 
-  layers = var.lambda_layer_arns
+  layers = concat([
+    aws_lambda_layer_version.aws_sdk_layer.arn,
+    aws_lambda_layer_version.app_dependencies_layer.arn,
+    aws_lambda_layer_version.scraping_dependencies_layer.arn
+  ], var.lambda_layer_arns)
 
   tags = {
     Environment = var.environment
@@ -66,6 +109,25 @@ resource "aws_iam_role" "lambda_role" {
 resource "aws_iam_role_policy_attachment" "lambda_basic_execution" {
   role       = aws_iam_role.lambda_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+}
+
+# IAM Policy for Secrets Manager access
+resource "aws_iam_role_policy" "lambda_secrets_manager" {
+  name = "${var.project_name}-lambda-secrets-manager-${var.environment}"
+  role = aws_iam_role.lambda_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        Resource = data.aws_secretsmanager_secret.openai_api_key.arn
+      }
+    ]
+  })
 }
 
 # CloudWatch Log Group

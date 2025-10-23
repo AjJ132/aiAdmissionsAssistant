@@ -1,7 +1,7 @@
 # Terraform
 .terraform/
-*.tfstate
-*.tfstate.*
+# *.tfstate - Uncommenting to allow state file in repo for CI/CD
+# *.tfstate.* - Uncommenting to allow state backups
 *.tfvars
 !terraform.tfvars.example
 crash.log

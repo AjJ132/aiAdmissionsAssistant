@@ -1,5 +1,5 @@
 import re
-from lxml import html as lxml_html
+from bs4 import BeautifulSoup
 from typing import Dict, List, Union, Optional
 import json
 import codecs
@@ -45,17 +45,19 @@ class ScrapingUtils:
         for unicode_char, replacement in unicode_char_mappings.items():
             text = text.replace(unicode_char, replacement)
         
-        # Apply escape sequence mappings
+        # Apply escape sequence mappings (for strings containing literal \uXXXX patterns)
         for unicode_seq, replacement in unicode_escape_mappings.items():
             text = text.replace(unicode_seq, replacement)
         
-        # Handle any remaining Unicode escapes using codecs
-        try:
-            # This will decode any remaining \uXXXX sequences
-            text = codecs.decode(text, 'unicode_escape')
-        except (UnicodeDecodeError, UnicodeError):
-            # If decoding fails, return the text as-is
-            pass
+        # Only attempt to decode escape sequences if the string contains them
+        # This prevents mangling of already-decoded UTF-8 characters
+        if r'\u' in text or r'\x' in text:
+            try:
+                # This will decode any remaining \uXXXX or \xXX sequences
+                text = codecs.decode(text, 'unicode_escape')
+            except (UnicodeDecodeError, UnicodeError):
+                # If decoding fails, return the text as-is
+                pass
         
         # Clean up newlines and excessive whitespace
         # Replace literal \n with spaces
@@ -78,92 +80,104 @@ class ScrapingUtils:
         """
         Extract comprehensive content from a university degree page using multiple strategies
         """
-        tree = lxml_html.fromstring(html)
+        soup = BeautifulSoup(html, 'html.parser')
         
         result = {
-            'title': ScrapingUtils._extract_title(tree),
-            'description': ScrapingUtils._extract_description(tree),
-            'program_snapshot': ScrapingUtils._extract_program_snapshot(tree),
-            'admission_requirements': ScrapingUtils._extract_admission_requirements(tree),
-            'program_benefits': ScrapingUtils._extract_program_benefits(tree),
-            'contact_info': ScrapingUtils._extract_contact_info(tree),
-            'related_programs': ScrapingUtils._extract_related_programs(tree),
-            'key_sections': ScrapingUtils._extract_key_sections(tree),
-            'all_text': ScrapingUtils._extract_clean_text(tree)
+            'title': ScrapingUtils._extract_title(soup),
+            'description': ScrapingUtils._extract_description(soup),
+            'program_snapshot': ScrapingUtils._extract_program_snapshot(soup),
+            'admission_requirements': ScrapingUtils._extract_admission_requirements(soup),
+            'program_benefits': ScrapingUtils._extract_program_benefits(soup),
+            'contact_info': ScrapingUtils._extract_contact_info(soup),
+            'related_programs': ScrapingUtils._extract_related_programs(soup),
+            'key_sections': ScrapingUtils._extract_key_sections(soup),
+            'all_text': ScrapingUtils._extract_clean_text(soup)
         }
         
         return result
     
     @staticmethod
-    def _extract_title(tree) -> str:
+    def _extract_title(soup) -> str:
         """Extract page title using multiple fallback strategies"""
-        selectors = [
-            '//h1',
-            '//title',
-            '//*[@class="banner_message"]//h1',
-            '//*[contains(@class, "heading")]//h1'
-        ]
+        # Try h1 first
+        h1 = soup.find('h1')
+        if h1:
+            title = h1.get_text().strip()
+            if title and len(title) >= 3:
+                return ScrapingUtils._clean_unicode_escapes(title)
         
-        for selector in selectors:
-            elements = tree.xpath(selector)
-            if elements:
-                title = elements[0].text_content().strip()
-                if title and len(title) > 10:  # Reasonable title length
+        # Try title tag
+        title_tag = soup.find('title')
+        if title_tag:
+            title = title_tag.get_text().strip()
+            if title and len(title) >= 3:
+                return ScrapingUtils._clean_unicode_escapes(title)
+        
+        # Try banner message
+        banner = soup.find(class_=lambda x: x and 'banner_message' in x)
+        if banner:
+            h1 = banner.find('h1')
+            if h1:
+                title = h1.get_text().strip()
+                if title and len(title) >= 3:
                     return ScrapingUtils._clean_unicode_escapes(title)
         
         return "Title not found"
     
     @staticmethod
-    def _extract_description(tree) -> str:
+    def _extract_description(soup) -> str:
         """Extract main program description with fallbacks"""
-        # Look for the first substantial paragraph after heading
-        selectors = [
-            '//div[contains(@class, "content")]//p[string-length(text()) > 100][1]',
-            '//main//p[string-length(text()) > 100][1]',
-            '//div[@role="main"]//p[string-length(text()) > 100][1]',
-            '//p[contains(text(), "Master") or contains(text(), "program")][string-length(text()) > 100][1]'
-        ]
+        # Look for substantial paragraphs
+        for selector in [
+            soup.find('div', class_=lambda x: x and 'content' in x),
+            soup.find('main'),
+            soup.find('div', role='main')
+        ]:
+            if selector:
+                paragraphs = selector.find_all('p')
+                for p in paragraphs:
+                    text = p.get_text().strip()
+                    if len(text) > 100:
+                        return ScrapingUtils._clean_unicode_escapes(text)
         
-        for selector in selectors:
-            elements = tree.xpath(selector)
-            if elements:
-                desc = elements[0].text_content().strip()
-                if len(desc) > 50:
-                    return ScrapingUtils._clean_unicode_escapes(desc)
+        # Fallback: look for any substantial paragraph
+        all_paragraphs = soup.find_all('p')
+        for p in all_paragraphs:
+            text = p.get_text().strip()
+            if len(text) > 100 and ('master' in text.lower() or 'program' in text.lower()):
+                return ScrapingUtils._clean_unicode_escapes(text)
                     
         return "Description not found"
     
     @staticmethod
-    def _extract_program_snapshot(tree) -> Dict[str, str]:
+    def _extract_program_snapshot(soup) -> Dict[str, str]:
         """Extract structured program information"""
         snapshot = {}
         
-        # Look for snapshot section by ID or heading
-        snapshot_section = None
-        for xpath in ['//h3[@id="snapshot"]', '//*[text()="Program Snapshot"]', '//*[contains(text(), "Snapshot")]']:
-            elements = tree.xpath(xpath)
-            if elements:
-                snapshot_section = elements[0]
-                break
+        # Look for snapshot section
+        snapshot_section = soup.find('h3', id='snapshot')
+        if not snapshot_section:
+            snapshot_section = soup.find(string=re.compile(r'Program Snapshot|Snapshot', re.I))
+            if snapshot_section:
+                snapshot_section = snapshot_section.parent
         
-        if snapshot_section is not None:
+        if snapshot_section:
             # Find parent container and extract key-value pairs
-            container = snapshot_section.getparent()
-            if container is not None:
-                # Look for paragraphs with colon-separated key-value pairs
-                for p in container.xpath('.//p'):
-                    text = p.text_content().strip()
-                    if ':' in text and len(text) < 200:  # Avoid long paragraphs
+            container = snapshot_section.parent
+            if container:
+                paragraphs = container.find_all('p')
+                for p in paragraphs:
+                    text = p.get_text().strip()
+                    if ':' in text and len(text) < 200:
                         key, value = text.split(':', 1)
                         snapshot[ScrapingUtils._clean_unicode_escapes(key.strip())] = ScrapingUtils._clean_unicode_escapes(value.strip())
         
         # Fallback: look for common program info patterns anywhere
         if not snapshot:
-            all_paragraphs = tree.xpath('//p')
+            all_paragraphs = soup.find_all('p')
             for p in all_paragraphs:
-                text = p.text_content().strip()
+                text = p.get_text().strip()
                 if ':' in text and len(text) < 200:
-                    # Check if it looks like program info
                     if any(keyword in text.lower() for keyword in ['credit', 'hour', 'term', 'format', 'time', 'degree']):
                         key, value = text.split(':', 1)
                         snapshot[ScrapingUtils._clean_unicode_escapes(key.strip())] = ScrapingUtils._clean_unicode_escapes(value.strip())
@@ -171,241 +185,219 @@ class ScrapingUtils:
         return snapshot
     
     @staticmethod
-    def _extract_admission_requirements(tree) -> List[str]:
+    def _extract_admission_requirements(soup) -> List[str]:
         """Extract admission requirements"""
         requirements = []
         
-        # Find requirements section - look for "Admission Requirements" heading
-        req_headings = tree.xpath('//*[contains(text(), "Admission Requirements")]')
+        # Find requirements section
+        req_heading = soup.find(string=re.compile(r'Admission Requirements', re.I))
         
-        for heading in req_headings:
-            # Look for the parent container that holds the requirements
-            container = heading.getparent()
-            if container is not None:
-                # Look for the next sibling that contains the two-column layout
-                next_sibling = container.getnext()
-                if next_sibling is not None:
-                    # Find all ul elements within the two-column layout
-                    lists = next_sibling.xpath('.//ul//li')
-                    for li in lists:
-                        # Get the text content from the div inside li
-                        div = li.find('.//div')
-                        if div is not None:
-                            req_text = div.text_content().strip()
-                        else:
-                            req_text = li.text_content().strip()
-                        
-                        if len(req_text) > 10:  # Filter out empty or tiny items
+        if req_heading:
+            heading_parent = req_heading.parent
+            # Look for the container
+            container = heading_parent.parent if heading_parent else None
+            if container:
+                # Find lists
+                lists = container.find_all(['ul', 'ol'])
+                for ul in lists:
+                    items = ul.find_all('li')
+                    for li in items:
+                        req_text = li.get_text().strip()
+                        if len(req_text) > 10:
                             requirements.append(ScrapingUtils._clean_unicode_escapes(req_text))
         
-        # Fallback: if no requirements found with the specific heading, try broader search
+        # Fallback: broader search
         if not requirements:
-            # Look for any heading containing "Admission" and then find nearby lists
-            req_headings = tree.xpath('//*[contains(text(), "Admission")]')
-            for heading in req_headings:
-                container = heading.getparent()
-                if container is not None:
-                    # Find lists within reasonable distance
-                    lists = container.xpath('.//ul//li | .//ol//li')
-                    for li in lists:
-                        req_text = li.text_content().strip()
-                        if len(req_text) > 10:  # Filter out empty or tiny items
-                            requirements.append(ScrapingUtils._clean_unicode_escapes(req_text))
+            admission_text = soup.find(string=re.compile(r'Admission', re.I))
+            if admission_text:
+                parent = admission_text.parent
+                if parent:
+                    container = parent.parent
+                    if container:
+                        lists = container.find_all(['ul', 'ol'])
+                        for ul in lists:
+                            items = ul.find_all('li')
+                            for li in items:
+                                req_text = li.get_text().strip()
+                                if len(req_text) > 10:
+                                    requirements.append(ScrapingUtils._clean_unicode_escapes(req_text))
         
-        return requirements[:10]  # Limit to prevent noise
+        return requirements[:10]
     
     @staticmethod
-    def _extract_program_benefits(tree) -> List[str]:
+    def _extract_program_benefits(soup) -> List[str]:
         """Extract program benefits or learning outcomes"""
         benefits = []
         
         # Look for benefits sections
-        benefit_headings = tree.xpath('//*[contains(text(), "Benefit") or contains(text(), "learn") or contains(text(), "skill")]')
+        benefit_heading = soup.find(string=re.compile(r'Benefit|learn|skill', re.I))
         
-        for heading in benefit_headings:
-            container = heading.getparent()
-            if container is not None:
-                lists = container.xpath('.//ul//li | .//ol//li')
-                for li in lists:
-                    benefit = li.text_content().strip()
-                    if len(benefit) > 15:
-                        benefits.append(ScrapingUtils._clean_unicode_escapes(benefit))
+        if benefit_heading:
+            parent = benefit_heading.parent
+            if parent:
+                container = parent.parent
+                if container:
+                    lists = container.find_all(['ul', 'ol'])
+                    for ul in lists:
+                        items = ul.find_all('li')
+                        for li in items:
+                            benefit = li.get_text().strip()
+                            if len(benefit) > 15:
+                                benefits.append(ScrapingUtils._clean_unicode_escapes(benefit))
         
         return benefits
     
     @staticmethod
-    def _extract_contact_info(tree) -> Dict[str, str]:
+    def _extract_contact_info(soup) -> Dict[str, str]:
         """Extract contact information"""
         contact = {}
         
         # Look for phone numbers
-        phone_elements = tree.xpath('//a[starts-with(@href, "tel:")] | //*[contains(text(), "Phone")]')
-        for elem in phone_elements:
-            text = elem.text_content().strip()
-            href = elem.get('href', '')
-            if 'tel:' in href or re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', text):
-                contact['phone'] = ScrapingUtils._clean_unicode_escapes(text)
-                break
+        phone_links = soup.find_all('a', href=re.compile(r'^tel:'))
+        if phone_links:
+            contact['phone'] = ScrapingUtils._clean_unicode_escapes(phone_links[0].get_text().strip())
+        else:
+            # Look for phone text
+            phone_text = soup.find(string=re.compile(r'Phone', re.I))
+            if phone_text:
+                parent_text = phone_text.parent.get_text() if phone_text.parent else str(phone_text)
+                phone_match = re.search(r'\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}', parent_text)
+                if phone_match:
+                    contact['phone'] = ScrapingUtils._clean_unicode_escapes(phone_match.group())
         
         # Look for email
-        email_elements = tree.xpath('//a[starts-with(@href, "mailto:")] | //*[contains(text(), "@")]')
-        for elem in email_elements:
-            text = elem.text_content().strip()
-            href = elem.get('href', '')
-            if '@' in text or 'mailto:' in href:
-                if 'mailto:' in href:
-                    contact['email'] = ScrapingUtils._clean_unicode_escapes(href.replace('mailto:', ''))
-                elif '@' in text:
-                    contact['email'] = ScrapingUtils._clean_unicode_escapes(text)
-                break
+        email_links = soup.find_all('a', href=re.compile(r'^mailto:'))
+        if email_links:
+            contact['email'] = ScrapingUtils._clean_unicode_escapes(email_links[0]['href'].replace('mailto:', ''))
+        else:
+            # Look for email in text
+            email_text = soup.find(string=re.compile(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'))
+            if email_text:
+                email_match = re.search(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', str(email_text))
+                if email_match:
+                    contact['email'] = ScrapingUtils._clean_unicode_escapes(email_match.group())
         
         # Look for address
-        address_indicators = ['Campus', 'Address', 'Location']
-        for indicator in address_indicators:
-            elements = tree.xpath(f'//*[contains(text(), "{indicator}")]')
-            for elem in elements:
-                parent = elem.getparent()
-                if parent is not None:
-                    text = parent.text_content()
-                    # Look for patterns that might be addresses
-                    if re.search(r'\d+.*(?:Road|Street|Drive|Ave|Pkwy).*\d{5}', text):
-                        contact['address'] = ScrapingUtils._clean_unicode_escapes(text.strip())
-                        break
+        for indicator in ['Campus', 'Address', 'Location']:
+            address_text = soup.find(string=re.compile(indicator, re.I))
+            if address_text and address_text.parent:
+                text = address_text.parent.get_text()
+                if re.search(r'\d+.*(?:Road|Street|Drive|Ave|Pkwy).*\d{5}', text):
+                    contact['address'] = ScrapingUtils._clean_unicode_escapes(text.strip())
+                    break
         
         return contact
     
     @staticmethod
-    def _extract_related_programs(tree) -> List[Dict[str, str]]:
+    def _extract_related_programs(soup) -> List[Dict[str, str]]:
         """Extract related programs/degrees"""
         programs = []
         
         # Look for related programs sections
-        related_sections = tree.xpath('//*[contains(text(), "Related") and (contains(text(), "Program") or contains(text(), "Degree"))]')
+        related_text = soup.find(string=re.compile(r'Related.*(Program|Degree)', re.I))
         
-        for section in related_sections:
-            container = section.getparent()
-            if container is not None:
-                # Look for links that might be programs
-                links = container.xpath('.//a[@href]')
-                for link in links:
-                    href = link.get('href')
-                    text = link.text_content().strip()
-                    if (href and text and 
-                        len(text) > 5 and 
-                        ('degree' in href.lower() or 'program' in href.lower())):
-                        programs.append({
-                            'name': ScrapingUtils._clean_unicode_escapes(text),
-                            'url': href
-                        })
+        if related_text:
+            parent = related_text.parent
+            if parent:
+                container = parent.parent
+                if container:
+                    links = container.find_all('a', href=True)
+                    for link in links:
+                        href = link.get('href', '')
+                        text = link.get_text().strip()
+                        if (href and text and 
+                            len(text) > 5 and 
+                            ('degree' in href.lower() or 'program' in href.lower())):
+                            programs.append({
+                                'name': ScrapingUtils._clean_unicode_escapes(text),
+                                'url': href
+                            })
         
-        return programs[:5]  # Limit results
+        return programs[:5]
     
     @staticmethod
-    def _extract_key_sections(tree) -> Dict[str, str]:
+    def _extract_key_sections(soup) -> Dict[str, str]:
         """Extract major content sections by headings"""
         sections = {}
         
-        # Find all headings (h2, h3, h4)
-        headings = tree.xpath('//h2 | //h3 | //h4')
+        # Find all headings
+        headings = soup.find_all(['h2', 'h3', 'h4'])
         
         for heading in headings:
-            heading_text = ScrapingUtils._clean_unicode_escapes(heading.text_content().strip())
+            heading_text = ScrapingUtils._clean_unicode_escapes(heading.get_text().strip())
             if len(heading_text) > 3:
                 # Get content following this heading
                 content_parts = []
-                current = heading.getnext()
+                current = heading.find_next_sibling()
                 
-                # Collect content until next heading or significant break
-                for _ in range(5):  # Limit to prevent runaway
-                    if current is None:
-                        break
-                    if current.tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+                # Collect content until next heading
+                count = 0
+                while current and count < 5:
+                    if current.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
                         break
                     
-                    text = current.text_content().strip()
+                    text = current.get_text().strip()
                     if text and len(text) > 10:
                         content_parts.append(ScrapingUtils._clean_unicode_escapes(text))
                     
-                    current = current.getnext()
+                    current = current.find_next_sibling()
+                    count += 1
                 
                 if content_parts:
-                    sections[heading_text] = ' '.join(content_parts)[:500]  # Truncate long content
+                    sections[heading_text] = ' '.join(content_parts)[:500]
         
         return sections
     
     @staticmethod
-    def _extract_clean_text(tree) -> str:
+    def _extract_clean_text(soup) -> str:
         """Extract clean, readable text from main content area"""
         # Remove script, style, navigation elements
-        for element in tree.xpath('//script | //style | //nav | //header | //footer'):
-            element.getparent().remove(element)
+        for element in soup(['script', 'style', 'nav', 'header', 'footer']):
+            element.decompose()
         
         # Focus on main content areas
-        main_content = tree.xpath('//main | //div[@role="main"] | //*[@id="main"]')
+        main_content = soup.find('main') or soup.find('div', role='main') or soup.find(id='main')
         
         if main_content:
-            text = main_content[0].text_content()
+            text = main_content.get_text()
         else:
-            text = tree.text_content()
+            text = soup.get_text()
         
         # Clean up whitespace
         text = re.sub(r'\s+', ' ', text).strip()
         return ScrapingUtils._clean_unicode_escapes(text)
-    
-    @staticmethod
-    def extract_with_readability(html: str) -> str:
-        """
-        Alternative content extraction using readability approach
-        (You'd need to install newspaper3k or readability-lxml for this)
-        """
-        try:
-            from readability import Document
-            doc = Document(html)
-            return doc.summary()
-        except ImportError:
-            # Fallback to basic content extraction
-            tree = lxml_html.fromstring(html)
-            return ScrapingUtils._extract_clean_text(tree)
 
 
-# Backward compatibility wrapper class
     # Simplified public methods (no fallbacks)
     @staticmethod
     def parse_degree_list(html: str, list_xpath: str) -> list:
         print("Parsing degree list from HTML: XPATH =", list_xpath)
 
-        # example xpath: "/html/body/div[1]/div[3]/div/div/div/ul"
+        soup = BeautifulSoup(html, 'html.parser')
 
-        tree = lxml_html.fromstring(html)
-        degree_elements = tree.xpath(list_xpath)
+        # Convert XPath-like selector to CSS/find approach
+        # For now, we'll just find all ul elements and look for degree links
+        ul_elements = soup.find_all('ul')
 
-        if not degree_elements:
-            print("No elements found matching the XPath.")
+        if not ul_elements:
+            print("No ul elements found.")
             return []
 
-        print(f"Found {len(degree_elements)} elements matching the XPath.")
+        print(f"Found {len(ul_elements)} ul elements.")
 
-        # xpath should get you to the ul element containing the degree list
-        # each li child contains an 'a' element with the degree name and URL
-        """
-        EXAMPLE: <li class=""><a
-            href="https://www.kennesaw.edu/degrees-programs/master-degrees/business-administration-conflict-management.php">Business
-            Administration/Conflict Management Dual Master's Degree (MBA/MSCM)</a></li>
-        """
         degrees = []
         
-        # The XPath should return the ul element(s) containing the degree list
-        for ul_elem in degree_elements:
-            # Find all li elements within this ul
-            li_elements = ul_elem.findall('li')
+        for ul_elem in ul_elements:
+            li_elements = ul_elem.find_all('li')
             print(f"Found {len(li_elements)} li elements in the ul")
             
             for li in li_elements:
                 a = li.find('a')
-                if a is not None:
-                    degree_name = a.text_content().strip()
+                if a and a.get('href'):
+                    degree_name = a.get_text().strip()
                     degree_url = a.get('href')
-                    degrees.append({'name': ScrapingUtils._clean_unicode_escapes(degree_name), 'url': degree_url})
+                    if degree_name:  # Only add if there's actual text
+                        degrees.append({'name': ScrapingUtils._clean_unicode_escapes(degree_name), 'url': degree_url})
 
         print(f"Successfully parsed {len(degrees)} degrees")
         return degrees
@@ -414,8 +406,8 @@ class ScrapingUtils:
     def get_all_text_content(html) -> str:
         if html is None:
             return ""
-        tree = lxml_html.fromstring(html)
-        return ScrapingUtils._extract_clean_text(tree)
+        soup = BeautifulSoup(html, 'html.parser')
+        return ScrapingUtils._extract_clean_text(soup)
 
     @staticmethod
     def parse_degree_page(html: str, description_xpath: Optional[str] = None, snapshot_xpath: Optional[str] = None) -> dict:

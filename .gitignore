@@ -1,9 +1,9 @@
 # Local Terraform directories
 .terraform/
 
-# Terraform state files
-*.tfstate
-*.tfstate.backup
+# Terraform state files - Commented out to allow state in repo for CI/CD
+# *.tfstate
+# *.tfstate.backup
 
 # Crash log files
 crash.log
@@ -28,3 +28,8 @@ terraform.rc
 
 # Partial or generated files
 *.backup
+
+# IDE
+.vscode/
+.idea/
+Server/src/util/__pycache__/scraping_utils.cpython-313.pyc

@@ -21,10 +21,19 @@ variable "lambda_zip_path" {
   type        = string
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key for the Lambda function"
+variable "lambda_layer_aws_zip_path" {
+  description = "Path to the Lambda Layer package containing AWS SDK dependencies"
   type        = string
-  sensitive   = true
+}
+
+variable "lambda_layer_app_zip_path" {
+  description = "Path to the Lambda Layer package containing application dependencies"
+  type        = string
+}
+
+variable "lambda_layer_scraping_zip_path" {
+  description = "Path to the Lambda Layer package containing web scraping dependencies"
+  type        = string
 }
 
 variable "lambda_layer_arns" {
