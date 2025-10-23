@@ -4,14 +4,9 @@ on:
   push:
     branches:
       - '**'  # Run on any branch for testing
-    paths:
-      - 'Server/**'
-      - '.github/workflows/deploy.yml'
   pull_request:
     branches:
       - '**'  # Run on PRs to any branch
-    paths:
-      - 'Server/**'
 
 jobs:
   build:
