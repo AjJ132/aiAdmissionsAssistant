@@ -1,0 +1,14 @@
+# Terraform
+.terraform/
+# *.tfstate - Uncommenting to allow state file in repo for CI/CD
+# *.tfstate.* - Uncommenting to allow state backups
+*.tfvars
+!terraform.tfvars.example
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc

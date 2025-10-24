@@ -1,0 +1,48 @@
+# Build artifacts
+build/
+*.zip
+
+# Deployment info
+deployment-info.json
+
+# Python
+__pycache__/
+*/__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.pyc
+*.pyo
+.Python
+env/
+venv/
+ENV/
+.venv
+*.egg-info/
+dist/
+*.egg
+
+# Test / Coverage
+.pytest_cache/
+.coverage
+coverage_html/
+htmlcov/
+.tox/
+*.cover
+.hypothesis/
+coverage.xml
+.coverage.*
+*.coveragerc
+
+# IDE
+.vscode/
+**/.vscode/
+.idea/
+*.swp
+*.swo
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
