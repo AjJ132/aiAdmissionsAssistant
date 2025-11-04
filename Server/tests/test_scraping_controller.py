@@ -4,7 +4,7 @@ Tests for scraping_controller.py - Scraping operations controller
 import pytest
 import json
 import aiohttp
-from unittest.mock import Mock, AsyncMock, patch, mock_open
+from unittest.mock import AsyncMock, patch, mock_open
 from src.controllers.scraping_controller import ScrapingController, ScrapingControllerFactory
 
 
@@ -16,7 +16,8 @@ class TestScrapingControllerFactory:
         """Test factory creates controller with proper dependencies"""
         config_json = json.dumps(sample_scraping_config)
         
-        with patch('builtins.open', mock_open(read_data=config_json)):
+        with patch('builtins.open', mock_open(read_data=config_json)), \
+             patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             controller = ScrapingControllerFactory.createScrapingController()
             
             assert controller is not None
@@ -24,7 +25,6 @@ class TestScrapingControllerFactory:
             assert controller.config == sample_scraping_config
             assert controller.webRequestService is not None
             assert controller.scraping_utils is not None
-    
     @pytest.mark.unit
     def test_create_scraping_controller_loads_config(self):
         """Test factory loads config from file"""
@@ -34,9 +34,11 @@ class TestScrapingControllerFactory:
         }
         config_json = json.dumps(test_config)
         
-        with patch('builtins.open', mock_open(read_data=config_json)):
+        with patch('builtins.open', mock_open(read_data=config_json)), \
+             patch.dict('os.environ', {'OPENAI_API_KEY': 'test-key'}):
             controller = ScrapingControllerFactory.createScrapingController()
             
+            assert controller.config["grad_admissions_list_url"] == "https://test.com"
             assert controller.config["grad_admissions_list_url"] == "https://test.com"
 
 
@@ -223,11 +225,11 @@ class TestScrapingController:
         
         with patch('aiohttp.ClientSession') as mock_session_class:
             mock_session = AsyncMock()
-            mock_session.__aenter__.return_value = mock_session
-            mock_session.__aexit__.return_value = None
             mock_session_class.return_value = mock_session
             
-            result = await controller.beginScrapingOperation()
+            await controller.beginScrapingOperation()
+            
+            # Should have attempted to scrape all degrees
             
             # Should have attempted to scrape all degrees
             assert mock_scraping_utils.extract_main_content.call_count == len(sample_degree_data)
@@ -276,12 +278,12 @@ class TestScrapingController:
         
         with patch('aiohttp.ClientSession') as mock_session_class:
             mock_session = AsyncMock()
-            mock_session.__aenter__.return_value = mock_session
-            mock_session.__aexit__.return_value = None
             mock_session_class.return_value = mock_session
             
             # Should complete without raising exception
-            result = await controller.beginScrapingOperation()
+            await controller.beginScrapingOperation()
+            
+            # Should have attempted all three
             
             # Should have attempted all three
             assert mock_web_request_service.fetchPage.call_count == 4  # 1 list + 3 pages

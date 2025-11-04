@@ -16,6 +16,7 @@ def lambda_handler(event: dict, context):
 
         # check route
         route = event.get("routeKey", "")
+        
         if route == "POST /scrape":
             from src.controllers.scraping_controller import ScrapingControllerFactory
             controller = ScrapingControllerFactory.createScrapingController()
@@ -27,6 +28,14 @@ def lambda_handler(event: dict, context):
                 'statusCode': 200,
                 'body': json.dumps({'message': result})
             }
+        
+        elif route == "POST /chat":
+            from src.controllers.llm_controller import ChatControllerFactory
+            controller = ChatControllerFactory.create_chat_controller()
+            
+            # Handle chat request (stateless)
+            return controller.handle_chat_request(event)
+        
         else:
             return {
                 'statusCode': 404,

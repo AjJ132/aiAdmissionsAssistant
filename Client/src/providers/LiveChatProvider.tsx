@@ -1,5 +1,6 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { useChat } from '@/hooks/useChat';
+import { chatAPIService, ChatAPIService } from '@/services/chatAPI';
 
 interface LiveChatProviderProps {
   children: (chat: ReturnType<typeof useChat> & { testMessage: () => void }) => React.ReactNode;
@@ -7,111 +8,24 @@ interface LiveChatProviderProps {
   chatId?: string;
 }
 
-interface SSEMessage {
-  type: 'message' | 'searching' | 'sources' | 'error' | 'done';
-  content?: string;
-  sources?: string[];
-  error?: string;
-}
-
 export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({ 
   children, 
-  apiEndpoint = '/api/chat',
+  apiEndpoint,
   chatId 
 }) => {
   const chat = useChat(chatId);
-  const eventSourceRef = useRef<EventSource | null>(null);
   const currentMessageIdRef = useRef<string | null>(null);
+  const apiServiceRef = useRef<ChatAPIService>(
+    apiEndpoint ? new ChatAPIService(apiEndpoint) : chatAPIService
+  );
 
-  // Cleanup SSE connection on unmount
+  // Load thread_id on mount
   useEffect(() => {
-    return () => {
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
-    };
+    const threadId = apiServiceRef.current.getThreadId();
+    if (threadId) {
+      console.log('Loaded existing thread_id:', threadId);
+    }
   }, []);
-
-  const handleSSEMessage = useCallback((event: MessageEvent) => {
-    try {
-      const data: SSEMessage = JSON.parse(event.data);
-      
-      switch (data.type) {
-        case 'message':
-          if (data.content) {
-            if (currentMessageIdRef.current) {
-              // Update existing message
-              chat.updateMessage(currentMessageIdRef.current, {
-                text: data.content,
-                isStreaming: true,
-              });
-            } else {
-              // Create new message
-              const messageId = chat.addMessage({
-                text: data.content,
-                isUser: false,
-                isStreaming: true,
-              });
-              currentMessageIdRef.current = messageId;
-            }
-          }
-          break;
-          
-        case 'searching':
-          if (data.content) {
-            const searchMessageId = chat.addMessage({
-              text: data.content,
-              isUser: false,
-              isSearching: true,
-            });
-            currentMessageIdRef.current = searchMessageId;
-          }
-          break;
-          
-        case 'sources':
-          if (data.sources && currentMessageIdRef.current) {
-            chat.updateMessage(currentMessageIdRef.current, {
-              sources: data.sources,
-            });
-          }
-          break;
-          
-        case 'error':
-          chat.setError(data.error || 'An error occurred');
-          chat.setLoading(false);
-          chat.setCanSendMessage(true);
-          break;
-          
-        case 'done':
-          if (currentMessageIdRef.current) {
-            chat.updateMessage(currentMessageIdRef.current, {
-              isStreaming: false,
-              isSearching: false,
-            });
-          }
-          chat.setLoading(false);
-          chat.setCanSendMessage(true);
-          currentMessageIdRef.current = null;
-          break;
-      }
-    } catch (error) {
-      console.error('Error parsing SSE message:', error);
-      chat.setError('Failed to parse server response');
-      chat.setLoading(false);
-      chat.setCanSendMessage(true);
-    }
-  }, [chat]);
-
-  const handleSSEError = useCallback(() => {
-    chat.setError('Connection lost. Please try again.');
-    chat.setLoading(false);
-    chat.setCanSendMessage(true);
-    
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
-    }
-  }, [chat]);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!chat.canSendMessage || chat.isLoading) return;
@@ -121,41 +35,72 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     chat.setLoading(true);
     chat.setCanSendMessage(false);
     chat.setError(null);
-    currentMessageIdRef.current = null;
+
+    // Add "thinking" message
+    const thinkingMessageId = chat.addMessage({
+      text: 'Thinking...',
+      isUser: false,
+      isSearching: true,
+    });
+    currentMessageIdRef.current = thinkingMessageId;
 
     try {
-      // Close existing connection if any
-      if (eventSourceRef.current) {
-        eventSourceRef.current.close();
-      }
+      // Call the stateless chat API
+      const response = await apiServiceRef.current.sendMessage(text);
 
-      // Create new SSE connection
-      const url = new URL(apiEndpoint, window.location.origin);
-      url.searchParams.set('message', text);
-      url.searchParams.set('chatId', chat.metadata.id);
-      
-      eventSourceRef.current = new EventSource(url.toString());
-      
-      eventSourceRef.current.onmessage = handleSSEMessage;
-      eventSourceRef.current.onerror = handleSSEError;
-      
+      if (response.status === 'completed') {
+        // Update the thinking message with the actual response
+        chat.updateMessage(thinkingMessageId, {
+          text: response.response,
+          isSearching: false,
+          isStreaming: false,
+          sources: response.sources,
+        });
+
+        console.log('Conversation thread_id:', response.thread_id);
+      } else {
+        // Handle error response
+        chat.updateMessage(thinkingMessageId, {
+          text: response.error || 'Failed to get response',
+          isSearching: false,
+          isStreaming: false,
+        });
+        chat.setError(response.error || 'Failed to get response');
+      }
     } catch (error) {
       console.error('Error sending message:', error);
+      
+      // Update thinking message to show error
+      chat.updateMessage(thinkingMessageId, {
+        text: 'Failed to send message. Please try again.',
+        isSearching: false,
+        isStreaming: false,
+      });
       chat.setError('Failed to send message. Please try again.');
+    } finally {
       chat.setLoading(false);
       chat.setCanSendMessage(true);
+      currentMessageIdRef.current = null;
     }
-  }, [chat, apiEndpoint, handleSSEMessage, handleSSEError]);
+  }, [chat]);
 
   const handleTestMessage = useCallback(() => {
     const testMessage = "What are the admission requirements for the Computer Science graduate program?";
     sendMessage(testMessage);
   }, [sendMessage]);
 
+  const clearMessages = useCallback(() => {
+    // Clear messages and start new conversation
+    chat.clearMessages();
+    apiServiceRef.current.startNewConversation();
+    console.log('Started new conversation');
+  }, [chat]);
+
   const chatWithLive = {
     ...chat,
     sendMessage,
     testMessage: handleTestMessage,
+    clearMessages,
   };
 
   return <>{children(chatWithLive)}</>;
