@@ -4,9 +4,15 @@ frontend:
     preBuild:
       commands:
         - npm ci
+        # Echo environment variable for debugging (check both possible names)
+        - echo "VITE_API_URL=$VITE_API_URL"
+        - echo "VITE_API_ENDPOINT=$VITE_API_ENDPOINT"
     build:
       commands:
         - npm run build
+        # Verify the environment variable was set during build (check both possible names)
+        - echo "Build completed with VITE_API_URL=$VITE_API_URL"
+        - echo "Build completed with VITE_API_ENDPOINT=$VITE_API_ENDPOINT"
   artifacts:
     # IMPORTANT - Please verify your build output directory
     baseDirectory: dist

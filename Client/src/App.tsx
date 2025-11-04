@@ -3,22 +3,27 @@ import './App.css'
 import { useExternalResources } from './hooks/useExternalResources'
 import { HtmlContent } from './components/HtmlContent'
 import { ChatSidebar } from './components/ChatSidebar'
-import { DemoChatProvider } from './providers'
 import AdminDashboard from './components/admin/AdminDashboard'
 import { Button } from './components/ui/button'
+import { LiveChatProvider } from './providers'
+
+// Backend API endpoint from environment variable
+// This should be set in Amplify environment variables as VITE_API_URL
+// Example: https://abc123.execute-api.us-east-1.amazonaws.com/chat
+const API_ENDPOINT = import.meta.env.VITE_API_URL
+
+// Log configuration on startup with more detail
+console.log('=== Chat Configuration ===')
+console.log('VITE_API_URL env var:', import.meta.env.VITE_API_URL)
+console.log('VITE_API_ENDPOINT env var:', import.meta.env.VITE_API_ENDPOINT)
+console.log('Resolved API_ENDPOINT:', API_ENDPOINT)
+console.log('All Vite env vars:', import.meta.env)
+console.log('========================')
 
 function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatWidth, setChatWidth] = useState(500);
   const { loaded: resourcesLoaded, error: resourceError } = useExternalResources();
-
-  // Get demo mode from URL parameters (defaults to true)
-  // Usage: ?demoMode=false to enable live mode, ?demoMode=true or no param for demo mode
-  const getDemoModeFromURL = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const demoModeParam = urlParams.get('demoMode');
-    return demoModeParam !== 'false'; // Default to true unless explicitly set to false
-  };
 
   // Get admin mode from URL parameters
   // Usage: ?admin=true to show admin dashboard
@@ -27,13 +32,11 @@ function App() {
     return urlParams.get('admin') === 'true';
   };
 
-  const [useDemoMode, setUseDemoMode] = useState(getDemoModeFromURL);
   const [showAdminDashboard, setShowAdminDashboard] = useState(getAdminModeFromURL);
 
   // Listen for URL parameter changes
   useEffect(() => {
     const handleURLChange = () => {
-      setUseDemoMode(getDemoModeFromURL());
       setShowAdminDashboard(getAdminModeFromURL());
     };
 
@@ -192,17 +195,16 @@ function App() {
           </div>
           
           {/* Chat sidebar */}
-          <DemoChatProvider>
+          <LiveChatProvider apiEndpoint={API_ENDPOINT}>
             {(chat) => (
               <ChatSidebar 
                 isOpen={isChatOpen}
                 onToggle={handleChatToggle}
                 onWidthChange={handleChatWidthChange}
-                isDemoMode={useDemoMode}
                 chatProvider={chat}
               />
             )}
-          </DemoChatProvider>
+          </LiveChatProvider>
         </>
       )}
     </div>

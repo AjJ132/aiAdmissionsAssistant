@@ -37,3 +37,18 @@ output "lambda_layers" {
   description = "Lambda layers attached to the function"
   value       = aws_lambda_function.api_lambda.layers
 }
+
+output "eventbridge_rule_name" {
+  description = "Name of the EventBridge rule for nightly scraping"
+  value       = var.enable_scheduled_scraping ? aws_cloudwatch_event_rule.nightly_scrape[0].name : "Disabled"
+}
+
+output "eventbridge_rule_arn" {
+  description = "ARN of the EventBridge rule for nightly scraping"
+  value       = var.enable_scheduled_scraping ? aws_cloudwatch_event_rule.nightly_scrape[0].arn : "Disabled"
+}
+
+output "eventbridge_schedule" {
+  description = "Schedule expression for the nightly scrape"
+  value       = var.enable_scheduled_scraping ? aws_cloudwatch_event_rule.nightly_scrape[0].schedule_expression : "Disabled"
+}

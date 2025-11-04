@@ -1,5 +1,9 @@
 from handler import lambda_handler
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file for local development
+load_dotenv()
 
 class MockLambdaContext:
     """Mock Lambda context for local testing"""
@@ -21,8 +25,8 @@ def create_lambda_event(method, path, query_params=None, body=None, headers=None
         "version": "2.0",
         "rawPath": path,
         "rawQueryString": "",
-        "headers": "",
-        "queryStringParameters": "",
+        "headers": headers or {},
+        "queryStringParameters": query_params or {},
         "requestContext": {
             "accountId": "123456789012",
             "apiId": "local",
