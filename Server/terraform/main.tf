@@ -13,7 +13,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Reference existing OpenAI API Key from Secrets Manager
 data "aws_secretsmanager_secret" "openai_api_key" {
   name = "${var.project_name}-openai-api-key-${var.environment}"
 }
@@ -67,6 +66,7 @@ resource "aws_lambda_function" "api_lambda" {
     variables = {
       ENVIRONMENT           = var.environment
       OPENAI_API_KEY_SECRET = data.aws_secretsmanager_secret.openai_api_key.name
+      OPENAI_API_VECTOR_STORE_ID = var.openai_vector_store_id
     }
   }
 

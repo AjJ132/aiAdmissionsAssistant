@@ -1,5 +1,9 @@
 from handler import lambda_handler
 import json
+from dotenv import load_dotenv
+
+# Load environment variables from .env file for local development
+load_dotenv()
 
 class MockLambdaContext:
     """Mock Lambda context for local testing"""

@@ -2,7 +2,11 @@ import json
 import asyncio
 import aiohttp
 from src.services.web_request_service import WebRequestService
+from src.services.vector_store_service import VectorStoreService
 from src.util.scraping_utils import ScrapingUtils
+from aws_lambda_powertools import Logger
+
+logger = Logger(child=True)
 
 
 class ScrapingControllerFactory:
@@ -11,16 +15,26 @@ class ScrapingControllerFactory:
         #load config from json file
         with open('src/util/scraping_config.json') as f:
             config = json.load(f)
-        return ScrapingController(webRequestService=WebRequestService(), scraping_utils=ScrapingUtils(), config=config)
+        
+        # Initialize vector store service
+        vector_store_service = VectorStoreService()
+        
+        return ScrapingController(
+            webRequestService=WebRequestService(), 
+            scraping_utils=ScrapingUtils(), 
+            config=config,
+            vector_store_service=vector_store_service
+        )
 
 
 
 class ScrapingController:
-    def __init__(self, webRequestService: WebRequestService, scraping_utils: ScrapingUtils, config: dict):
+    def __init__(self, webRequestService: WebRequestService, scraping_utils: ScrapingUtils, config: dict, vector_store_service: VectorStoreService | None = None):
         self.webRequestService = webRequestService
         self.scraping_utils = scraping_utils
         self.config = config
         self.obtained_degrees = []
+        self.vector_store_service = vector_store_service
 
     async def beginScrapingOperation(self):
         import time
@@ -65,6 +79,64 @@ class ScrapingController:
             elapsed_time = time.time() - start_time
             print(f"✓ Scraping operation completed in {elapsed_time:.2f} seconds")
             print(f"✓ Successfully scraped {len(degree_information)} out of {len(degrees_to_scrape)} degrees")
+            
+            # Upload to OpenAI Vector Store
+            if self.vector_store_service and degree_information:
+                print("Uploading degree data to OpenAI Vector Store...")
+                upload_start = time.time()
+                
+                try:
+                    upload_result = self.vector_store_service.upload_degree_data(degree_information)
+                    upload_elapsed = time.time() - upload_start
+                    
+                    print(f"Vector store upload completed in {upload_elapsed:.2f} seconds")
+                    print(f"New uploads: {upload_result['new_uploads']}, Updated: {len(upload_result['updated_files'])}, Failed: {upload_result['failed_uploads']}")
+                    
+                    if len(upload_result['updated_files']) > 0:
+                        logger.info(f"Updated {len(upload_result['updated_files'])} existing degree files:")
+                        for degree_name in upload_result['updated_files']:
+                            logger.info(f"  - {degree_name}")
+                    
+                    if upload_result['failed_uploads'] > 0:
+                        logger.warning(f"Failed to upload {upload_result['failed_uploads']} degrees")
+                        for failure in upload_result['failures']:
+                            logger.warning(f"  - {failure['degree']}: {failure['error']}")
+                    
+                    # Return comprehensive results
+                    return {
+                        'scraping': {
+                            'total_degrees': len(degrees_to_scrape),
+                            'successful_scrapes': len(degree_information),
+                            'duration_seconds': elapsed_time
+                        },
+                        'vector_store_upload': upload_result
+                    }
+                    
+                except Exception as e:
+                    logger.error(f"Error uploading to vector store: {e}")
+                    print(f"⚠️  Warning: Failed to upload to vector store: {e}")
+                    # Return scraping results even if upload fails
+                    return {
+                        'scraping': {
+                            'total_degrees': len(degrees_to_scrape),
+                            'successful_scrapes': len(degree_information),
+                            'duration_seconds': elapsed_time
+                        },
+                        'vector_store_upload': {
+                            'error': str(e)
+                        }
+                    }
+            else:
+                if not self.vector_store_service:
+                    print("ℹ️  Vector store service not configured, skipping upload")
+                
+                return {
+                    'scraping': {
+                        'total_degrees': len(degrees_to_scrape),
+                        'successful_scrapes': len(degree_information),
+                        'duration_seconds': elapsed_time
+                    }
+                }
 
         except Exception as e:
             print(f"Error during scraping operation: {e}")
@@ -88,6 +160,9 @@ class ScrapingController:
                 raise ValueError("No graduate degrees found on the page")
             
             print(f"Obtained {len(grad_degrees)} graduate degrees.")
+
+            # take 3
+            # grad_degrees = grad_degrees[:3]
 
             return grad_degrees
         except Exception as e:

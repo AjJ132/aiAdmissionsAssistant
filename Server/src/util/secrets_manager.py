@@ -48,13 +48,18 @@ def get_openai_api_key() -> str:
     Returns:
         The OpenAI API key
     """
-    # Check if running locally with direct env var
-    if 'OPENAI_API_KEY' in os.environ:
-        return os.environ['OPENAI_API_KEY']
+    # Check if running locally with direct env var (highest priority)
+    api_key = os.environ.get('OPENAI_API_KEY')
+    if api_key:
+        return api_key
     
     # In AWS Lambda, get the secret name from env var and fetch from Secrets Manager
     secret_name = os.environ.get('OPENAI_API_KEY_SECRET')
-    if not secret_name:
-        raise ValueError("OPENAI_API_KEY_SECRET environment variable not set")
+    if secret_name:
+        return get_secret(secret_name)
     
-    return get_secret(secret_name)
+    # If neither is set, raise an error
+    raise ValueError(
+        "OpenAI API key not configured. Set either OPENAI_API_KEY environment variable "
+        "for local development, or OPENAI_API_KEY_SECRET for AWS Lambda."
+    )

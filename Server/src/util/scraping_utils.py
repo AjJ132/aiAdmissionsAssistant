@@ -375,29 +375,32 @@ class ScrapingUtils:
 
         soup = BeautifulSoup(html, 'html.parser')
 
-        # Convert XPath-like selector to CSS/find approach
-        # For now, we'll just find all ul elements and look for degree links
-        ul_elements = soup.find_all('ul')
-
-        if not ul_elements:
-            print("No ul elements found.")
+        # Look for the specific degree list with the 'searchable_list' class
+        # This is more specific than searching all ul elements
+        degree_list = soup.find('ul', class_='searchable_list')
+        
+        if not degree_list:
+            print("No degree list with class 'searchable_list' found.")
+            # Fallback: try to find a ul with 'link_list' class
+            degree_list = soup.find('ul', class_='link_list')
+            
+        if not degree_list:
+            print("No degree list found with expected classes.")
             return []
 
-        print(f"Found {len(ul_elements)} ul elements.")
+        print("Found degree list element")
 
         degrees = []
+        li_elements = degree_list.find_all('li')
+        print(f"Found {len(li_elements)} li elements in the degree list")
         
-        for ul_elem in ul_elements:
-            li_elements = ul_elem.find_all('li')
-            print(f"Found {len(li_elements)} li elements in the ul")
-            
-            for li in li_elements:
-                a = li.find('a')
-                if a and a.get('href'):
-                    degree_name = a.get_text().strip()
-                    degree_url = a.get('href')
-                    if degree_name:  # Only add if there's actual text
-                        degrees.append({'name': ScrapingUtils._clean_unicode_escapes(degree_name), 'url': degree_url})
+        for li in li_elements:
+            a = li.find('a')
+            if a and a.get('href'):
+                degree_name = a.get_text().strip()
+                degree_url = a.get('href')
+                if degree_name:  # Only add if there's actual text
+                    degrees.append({'name': ScrapingUtils._clean_unicode_escapes(degree_name), 'url': degree_url})
 
         print(f"Successfully parsed {len(degrees)} degrees")
         return degrees

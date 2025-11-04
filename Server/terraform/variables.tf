@@ -41,3 +41,8 @@ variable "lambda_layer_arns" {
   type        = list(string)
   default     = []
 }
+
+variable "openai_vector_store_id" {
+  description = "OpenAI Vector Store ID"
+  type        = string
+}
