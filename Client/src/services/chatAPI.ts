@@ -113,5 +113,5 @@ export class ChatAPIService {
 
 // Export a singleton instance for convenience
 export const chatAPIService = new ChatAPIService(
-  import.meta.env.VITE_API_ENDPOINT || '/api/chat'
+  import.meta.env.VITE_API_URL
 );

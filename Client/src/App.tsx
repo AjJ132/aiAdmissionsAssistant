@@ -8,12 +8,13 @@ import { Button } from './components/ui/button'
 import { LiveChatProvider } from './providers'
 
 // Backend API endpoint from environment variable
-// This should be set in Amplify environment variables as VITE_API_ENDPOINT
+// This should be set in Amplify environment variables as VITE_API_URL
 // Example: https://abc123.execute-api.us-east-1.amazonaws.com/chat
-const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || '/api/chat'
+const API_ENDPOINT = import.meta.env.VITE_API_URL
 
 // Log configuration on startup with more detail
 console.log('=== Chat Configuration ===')
+console.log('VITE_API_URL env var:', import.meta.env.VITE_API_URL)
 console.log('VITE_API_ENDPOINT env var:', import.meta.env.VITE_API_ENDPOINT)
 console.log('Resolved API_ENDPOINT:', API_ENDPOINT)
 console.log('All Vite env vars:', import.meta.env)
