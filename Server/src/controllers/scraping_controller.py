@@ -82,6 +82,19 @@ class ScrapingController:
             
             # Upload to OpenAI Vector Store
             if self.vector_store_service and degree_information:
+                print("\nPreparing vector store for upload...")
+                
+                # Delete all existing files before uploading fresh data
+                try:
+                    from src.util.vector_store_cleanup import delete_all_vector_store_files
+                    print("Deleting existing files from vector store...")
+                    deletion_result = delete_all_vector_store_files()
+                    print(f"Deleted {deletion_result['deleted_count']} existing file(s)")
+                except Exception as e:
+                    logger.error(f"Error deleting existing files: {e}")
+                    print(f"Warning: Failed to delete existing files: {e}")
+                    # Continue with upload even if deletion fails
+                
                 print("Uploading degree data to OpenAI Vector Store...")
                 upload_start = time.time()
                 
@@ -90,12 +103,10 @@ class ScrapingController:
                     upload_elapsed = time.time() - upload_start
                     
                     print(f"Vector store upload completed in {upload_elapsed:.2f} seconds")
-                    print(f"New uploads: {upload_result['new_uploads']}, Updated: {len(upload_result['updated_files'])}, Failed: {upload_result['failed_uploads']}")
+                    print(f"New uploads: {upload_result['new_uploads']}, Updated: {upload_result['updated_files']}, Failed: {upload_result['failed_uploads']}")
                     
-                    if len(upload_result['updated_files']) > 0:
-                        logger.info(f"Updated {len(upload_result['updated_files'])} existing degree files:")
-                        for degree_name in upload_result['updated_files']:
-                            logger.info(f"  - {degree_name}")
+                    if upload_result['updated_files'] > 0:
+                        logger.info(f"Updated {upload_result['updated_files']} existing degree files")
                     
                     if upload_result['failed_uploads'] > 0:
                         logger.warning(f"Failed to upload {upload_result['failed_uploads']} degrees")
@@ -114,7 +125,7 @@ class ScrapingController:
                     
                 except Exception as e:
                     logger.error(f"Error uploading to vector store: {e}")
-                    print(f"⚠️  Warning: Failed to upload to vector store: {e}")
+                    print(f"Warning: Failed to upload to vector store: {e}")
                     # Return scraping results even if upload fails
                     return {
                         'scraping': {

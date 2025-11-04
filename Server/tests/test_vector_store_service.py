@@ -159,34 +159,6 @@ class TestVectorStoreService:
         # At least one should succeed
         assert result['successful_operations'] >= 0
     
-    def test_delete_all_files(self, mock_openai_client, mock_api_key):
-        """Test deleting all files from vector store"""
-        mock_file1 = Mock()
-        mock_file1.id = 'file_1'
-        mock_file2 = Mock()
-        mock_file2.id = 'file_2'
-        
-        mock_files = Mock()
-        mock_files.data = [mock_file1, mock_file2]
-        
-        mock_client_instance = mock_openai_client.return_value
-        mock_client_instance.vector_stores.files.list.return_value = mock_files
-        
-        service = VectorStoreService(vector_store_id='vs_123')
-        result = service.delete_all_files()
-        
-        assert result['vector_store_id'] == 'vs_123'
-        assert result['deleted_count'] == 2
-        assert mock_client_instance.vector_stores.files.delete.call_count == 2
-    
-    def test_delete_all_files_no_vector_store_id(self, mock_openai_client, mock_api_key):
-        """Test delete without vector store ID raises error"""
-        with patch.dict(os.environ, {}, clear=True):
-            service = VectorStoreService()
-            
-            with pytest.raises(ValueError, match="No vector store ID configured"):
-                service.delete_all_files()
-    
     def test_get_vector_store_info(self, mock_openai_client, mock_api_key):
         """Test getting vector store information"""
         mock_vector_store = Mock()

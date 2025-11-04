@@ -25,8 +25,8 @@ def create_lambda_event(method, path, query_params=None, body=None, headers=None
         "version": "2.0",
         "rawPath": path,
         "rawQueryString": "",
-        "headers": "",
-        "queryStringParameters": "",
+        "headers": headers or {},
+        "queryStringParameters": query_params or {},
         "requestContext": {
             "accountId": "123456789012",
             "apiId": "local",

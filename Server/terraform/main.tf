@@ -202,3 +202,65 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
 }
+
+# EventBridge Rule for nightly scraping at midnight UTC
+resource "aws_cloudwatch_event_rule" "nightly_scrape" {
+  count               = var.enable_scheduled_scraping ? 1 : 0
+  name                = "${var.project_name}-nightly-scrape-${var.environment}"
+  description         = "Trigger scraping operation every night at midnight UTC"
+  schedule_expression = var.scrape_schedule_expression
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# EventBridge Target - Lambda Function
+resource "aws_cloudwatch_event_target" "lambda_target" {
+  count     = var.enable_scheduled_scraping ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.nightly_scrape[0].name
+  target_id = "NightlyScrapeTarget"
+  arn       = aws_lambda_function.api_lambda.arn
+
+  # Input to trigger the scrape endpoint
+  input = jsonencode({
+    routeKey = "POST /scrape"
+    version  = "2.0"
+    rawPath  = "/scrape"
+    rawQueryString = ""
+    headers = {
+      "content-type" = "application/json"
+    }
+    queryStringParameters = {}
+    requestContext = {
+      accountId    = "scheduled-event"
+      apiId        = "scheduled"
+      domainName   = "scheduled.eventbridge"
+      domainPrefix = "scheduled"
+      http = {
+        method   = "POST"
+        path     = "/scrape"
+        protocol = "HTTP/1.1"
+        sourceIp = "0.0.0.0"
+        userAgent = "Amazon-EventBridge"
+      }
+      requestId = "scheduled-request-id"
+      stage     = "scheduled"
+      time      = "scheduled"
+      timeEpoch = 0
+    }
+    body = jsonencode({})
+    isBase64Encoded = false
+  })
+}
+
+# Lambda Permission for EventBridge
+resource "aws_lambda_permission" "eventbridge_invoke" {
+  count         = var.enable_scheduled_scraping ? 1 : 0
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api_lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.nightly_scrape[0].arn
+}

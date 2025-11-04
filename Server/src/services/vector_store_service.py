@@ -326,7 +326,7 @@ class VectorStoreService:
     
     def delete_all_files(self) -> Dict[str, Any]:
         """
-        Delete all files from the vector store
+        Delete all files from the vector store with pagination support
         
         Returns:
             Dictionary with deletion statistics
@@ -337,26 +337,53 @@ class VectorStoreService:
         logger.info(f"Deleting all files from vector store {self.vector_store_id}")
         
         try:
-            # List all files in the vector store
-            files = self.client.vector_stores.files.list(
-                vector_store_id=self.vector_store_id
-            )
-            
             deleted_count = 0
-            for file in files.data:
-                try:
-                    self.client.vector_stores.files.delete(
-                        vector_store_id=self.vector_store_id,
-                        file_id=file.id
-                    )
-                    deleted_count += 1
-                except Exception as e:
-                    logger.error(f"Error deleting file {file.id}: {e}")
+            failed_count = 0
+            after = None
             
-            logger.info(f"Deleted {deleted_count} files from vector store")
+            # Paginate through all files
+            while True:
+                # List files with pagination
+                if after:
+                    files = self.client.vector_stores.files.list(
+                        vector_store_id=self.vector_store_id,
+                        limit=100,
+                        after=after
+                    )
+                else:
+                    files = self.client.vector_stores.files.list(
+                        vector_store_id=self.vector_store_id,
+                        limit=100
+                    )
+                
+                # Delete each file in the current page
+                for file in files.data:
+                    try:
+                        self.client.vector_stores.files.delete(
+                            vector_store_id=self.vector_store_id,
+                            file_id=file.id
+                        )
+                        deleted_count += 1
+                        logger.info(f"Deleted file: {file.id}")
+                    except Exception as e:
+                        failed_count += 1
+                        logger.error(f"Error deleting file {file.id}: {e}")
+                
+                # Check if there are more pages
+                if not files.has_more:
+                    break
+                    
+                # Get the ID of the last file for pagination
+                if files.data:
+                    after = files.data[-1].id
+                else:
+                    break
+            
+            logger.info(f"Deleted {deleted_count} files from vector store (failed: {failed_count})")
             return {
                 'vector_store_id': self.vector_store_id,
-                'deleted_count': deleted_count
+                'deleted_count': deleted_count,
+                'failed_count': failed_count
             }
             
         except Exception as e:

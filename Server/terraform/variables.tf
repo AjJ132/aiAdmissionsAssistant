@@ -51,3 +51,15 @@ variable "openai_assistant_id" {
   description = "OpenAI Assistant ID for chat functionality"
   type        = string
 }
+
+variable "scrape_schedule_expression" {
+  description = "EventBridge schedule expression for nightly scraping (cron format)"
+  type        = string
+  default     = "cron(0 0 * * ? *)"  # Default: midnight UTC every day
+}
+
+variable "enable_scheduled_scraping" {
+  description = "Enable or disable the scheduled scraping EventBridge rule"
+  type        = bool
+  default     = true
+}
