@@ -383,6 +383,20 @@ class ScrapingUtils:
             print("No degree list with class 'searchable_list' found.")
             # Fallback: try to find a ul with 'link_list' class
             degree_list = soup.find('ul', class_='link_list')
+        
+        if not degree_list:
+            print("No degree list with class 'link_list' found.")
+            # Fallback: try to find any ul with 'degree' in the class name
+            degree_list = soup.find('ul', class_=lambda x: x and 'degree' in x)
+        
+        if not degree_list:
+            print("No degree list with 'degree' in class found.")
+            # Final fallback: find all ul elements and use the first one with links
+            all_uls = soup.find_all('ul')
+            for ul in all_uls:
+                if ul.find('a'):
+                    degree_list = ul
+                    break
             
         if not degree_list:
             print("No degree list found with expected classes.")

@@ -33,7 +33,6 @@ describe('ChatSidebar', () => {
     isOpen: true,
     onToggle: vi.fn(),
     onWidthChange: vi.fn(),
-    isDemoMode: false,
     chatProvider: mockChatProvider
   }
 
@@ -67,7 +66,7 @@ describe('ChatSidebar', () => {
     const user = userEvent.setup()
     render(<ChatSidebar {...defaultProps} />)
     
-    const input = screen.getByPlaceholderText(/type your message/i)
+    const input = screen.getByPlaceholderText(/ask about graduate admissions/i)
     const sendButton = screen.getByRole('button', { name: '' })
     
     await user.type(input, 'Test message')
@@ -99,11 +98,11 @@ describe('ChatSidebar', () => {
     expect(input).toBeDisabled()
   })
 
-  it('should call testMessage when "test" is typed in demo mode', async () => {
+  it('should call testMessage when "test" is typed', async () => {
     const user = userEvent.setup()
-    render(<ChatSidebar {...defaultProps} isDemoMode={true} />)
+    render(<ChatSidebar {...defaultProps} />)
     
-    const input = screen.getByPlaceholderText(/ask about admissions or type 'test'/i)
+    const input = screen.getByPlaceholderText(/ask about graduate admissions/i)
     const sendButton = screen.getByRole('button', { name: '' })
     
     await user.type(input, 'test')

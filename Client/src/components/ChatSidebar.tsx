@@ -8,7 +8,6 @@ interface ChatSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   onWidthChange?: (width: number) => void;
-  isDemoMode?: boolean;
   chatProvider: {
     sendMessage: (text: string) => void;
     testMessage?: () => void;
@@ -23,7 +22,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   isOpen, 
   onToggle, 
   onWidthChange, 
-  isDemoMode = false,
   chatProvider
 }) => {
   const {
@@ -41,20 +39,14 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   // Handle message sending - delegate to chat provider
   const handleSendMessage = (messageText: string) => {
-    if (isDemoMode && messageText.toLowerCase().trim() === 'test' && chatProvider?.testMessage) {
+    // Type 'test' to trigger test message if available
+    if (messageText.toLowerCase().trim() === 'test' && chatProvider?.testMessage) {
       chatProvider.testMessage();
       return;
     }
 
     if (chatProvider?.sendMessage) {
       chatProvider.sendMessage(messageText);
-    }
-  };
-
-  // Handle test message - delegate to chat provider
-  const handleTestMessage = () => {
-    if (chatProvider?.testMessage) {
-      chatProvider.testMessage();
     }
   };
 
@@ -167,7 +159,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         {/* Input Area */}
         <MessageInput
           onSendMessage={handleSendMessage}
-          onTestMessage={isDemoMode ? handleTestMessage : undefined}
+          onTestMessage={chatProvider?.testMessage}
           isLoading={isLoading}
           canSendMessage={canSendMessage}
           placeholder={
@@ -175,9 +167,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               ? "KSU Graduate Admissions Assistant is typing..." 
               : !canSendMessage 
                 ? "Please wait for response..." 
-                : isDemoMode 
-                  ? "Ask about admissions or type 'test'..." 
-                  : "Type your message..."
+                : "Ask about graduate admissions..."
           }
         />
       </div>

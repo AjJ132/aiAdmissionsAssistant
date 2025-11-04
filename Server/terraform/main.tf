@@ -59,7 +59,7 @@ resource "aws_lambda_function" "api_lambda" {
   handler         = "handler.lambda_handler"
   source_code_hash = filebase64sha256(var.lambda_zip_path)
   runtime         = "python3.13"
-  timeout         = 30
+  timeout         = 90
   memory_size     = 512
 
   environment {

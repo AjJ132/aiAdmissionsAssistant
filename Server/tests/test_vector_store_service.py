@@ -74,14 +74,14 @@ class TestVectorStoreService:
         mock_vector_store.id = 'vs_new_123'
         
         mock_client_instance = mock_openai_client.return_value
-        mock_client_instance.beta.vector_stores.create.return_value = mock_vector_store
+        mock_client_instance.vector_stores.create.return_value = mock_vector_store
         
         service = VectorStoreService()
         vector_store_id = service.create_vector_store('Test Vector Store')
         
         assert vector_store_id == 'vs_new_123'
         assert service.vector_store_id == 'vs_new_123'
-        mock_client_instance.beta.vector_stores.create.assert_called_once_with(name='Test Vector Store')
+        mock_client_instance.vector_stores.create.assert_called_once_with(name='Test Vector Store')
     
     def test_format_degree_content(self, mock_openai_client, mock_api_key, sample_degree_data):
         """Test formatting degree content"""
@@ -123,10 +123,11 @@ class TestVectorStoreService:
     
     def test_upload_degree_data_no_vector_store_id(self, mock_openai_client, mock_api_key, sample_degree_data):
         """Test upload without vector store ID raises error"""
-        service = VectorStoreService()
-        
-        with pytest.raises(ValueError, match="No vector store ID configured"):
-            service.upload_degree_data(sample_degree_data)
+        with patch.dict(os.environ, {}, clear=True):
+            service = VectorStoreService()
+            
+            with pytest.raises(ValueError, match="No vector store ID configured"):
+                service.upload_degree_data(sample_degree_data)
     
     def test_upload_degree_data_partial_failure(self, mock_openai_client, mock_api_key):
         """Test upload with some failures"""
@@ -169,21 +170,22 @@ class TestVectorStoreService:
         mock_files.data = [mock_file1, mock_file2]
         
         mock_client_instance = mock_openai_client.return_value
-        mock_client_instance.beta.vector_stores.files.list.return_value = mock_files
+        mock_client_instance.vector_stores.files.list.return_value = mock_files
         
         service = VectorStoreService(vector_store_id='vs_123')
         result = service.delete_all_files()
         
         assert result['vector_store_id'] == 'vs_123'
         assert result['deleted_count'] == 2
-        assert mock_client_instance.beta.vector_stores.files.delete.call_count == 2
+        assert mock_client_instance.vector_stores.files.delete.call_count == 2
     
     def test_delete_all_files_no_vector_store_id(self, mock_openai_client, mock_api_key):
         """Test delete without vector store ID raises error"""
-        service = VectorStoreService()
-        
-        with pytest.raises(ValueError, match="No vector store ID configured"):
-            service.delete_all_files()
+        with patch.dict(os.environ, {}, clear=True):
+            service = VectorStoreService()
+            
+            with pytest.raises(ValueError, match="No vector store ID configured"):
+                service.delete_all_files()
     
     def test_get_vector_store_info(self, mock_openai_client, mock_api_key):
         """Test getting vector store information"""
@@ -196,7 +198,7 @@ class TestVectorStoreService:
         mock_vector_store.file_counts.dict.return_value = {'total': 5, 'completed': 5}
         
         mock_client_instance = mock_openai_client.return_value
-        mock_client_instance.beta.vector_stores.retrieve.return_value = mock_vector_store
+        mock_client_instance.vector_stores.retrieve.return_value = mock_vector_store
         
         service = VectorStoreService(vector_store_id='vs_123')
         info = service.get_vector_store_info()
@@ -208,10 +210,11 @@ class TestVectorStoreService:
     
     def test_get_vector_store_info_no_id(self, mock_openai_client, mock_api_key):
         """Test get info without vector store ID raises error"""
-        service = VectorStoreService()
-        
-        with pytest.raises(ValueError, match="No vector store ID configured"):
-            service.get_vector_store_info()
+        with patch.dict(os.environ, {}, clear=True):
+            service = VectorStoreService()
+            
+            with pytest.raises(ValueError, match="No vector store ID configured"):
+                service.get_vector_store_info()
     
     def test_hash_degree_name(self, mock_openai_client, mock_api_key):
         """Test hashing of degree names"""
@@ -298,8 +301,8 @@ class TestVectorStoreService:
         
         # Should have one update and one new upload
         assert result['total_degrees'] == 2
-        assert result['updated_files'] >= 1  # At least one should be an update
-        assert result['new_uploads'] >= 1    # At least one should be new
+        assert result['updated_files'] >= 1  # Count: At least one should be an update
+        assert result['new_uploads'] >= 1    # Count: At least one should be new
         
         # Should have called delete for the existing file
         mock_client_instance.vector_stores.files.delete.assert_called()

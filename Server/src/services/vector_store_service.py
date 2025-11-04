@@ -270,7 +270,7 @@ class VectorStoreService:
             'successful_operations': len(uploaded_files) + len(updated_files),
             'failed_uploads': len(failed_uploads),
             'uploaded_files': uploaded_files,
-            'updated_files': updated_files,
+            'updated_files_list': updated_files,
             'failures': failed_uploads
         }
         

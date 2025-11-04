@@ -34,3 +34,4 @@ terraform.rc
 .idea/
 Server/src/util/__pycache__/scraping_utils.cpython-313.pyc
 Server/.env
+delete.sh
