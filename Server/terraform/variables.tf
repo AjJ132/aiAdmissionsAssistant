@@ -46,3 +46,8 @@ variable "openai_vector_store_id" {
   description = "OpenAI Vector Store ID"
   type        = string
 }
+
+variable "openai_assistant_id" {
+  description = "OpenAI Assistant ID for chat functionality"
+  type        = string
+}

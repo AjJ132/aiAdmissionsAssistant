@@ -149,6 +149,21 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
         {/* Messages Container */}
         <div className="flex-1 min-h-0 flex flex-col bg-background">
+          {/* Header with New Chat button */}
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <h2 className="text-lg font-semibold">Graduate Admissions Assistant</h2>
+            {messages.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => chatProvider?.clearMessages()}
+                className="text-xs"
+              >
+                + New Chat
+              </Button>
+            )}
+          </div>
+          
           <MessageList
             messages={messages}
             isLoading={isLoading}
@@ -174,4 +189,3 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     </>
   );
 };
-

@@ -64,9 +64,10 @@ resource "aws_lambda_function" "api_lambda" {
 
   environment {
     variables = {
-      ENVIRONMENT           = var.environment
-      OPENAI_API_KEY_SECRET = data.aws_secretsmanager_secret.openai_api_key.name
-      OPENAI_API_VECTOR_STORE_ID = var.openai_vector_store_id
+      ENVIRONMENT                = var.environment
+      OPENAI_API_KEY_SECRET      = data.aws_secretsmanager_secret.openai_api_key.name
+      OPENAI_VECTOR_STORE_ID     = var.openai_vector_store_id
+      OPENAI_ASSISTANT_ID        = var.openai_assistant_id
     }
   }
 
