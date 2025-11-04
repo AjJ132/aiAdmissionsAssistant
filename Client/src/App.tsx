@@ -8,7 +8,12 @@ import { Button } from './components/ui/button'
 import { LiveChatProvider } from './providers'
 
 // Backend API endpoint from environment variable
-const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT
+// This should be set in Amplify environment variables as VITE_API_ENDPOINT
+// Example: https://abc123.execute-api.us-east-1.amazonaws.com/chat
+const API_ENDPOINT = import.meta.env.VITE_API_ENDPOINT || '/api/chat'
+
+// Log configuration on startup
+console.log('Chat API Endpoint:', API_ENDPOINT)
 
 function App() {
   const [isChatOpen, setIsChatOpen] = useState(false);
