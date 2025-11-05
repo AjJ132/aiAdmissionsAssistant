@@ -19,7 +19,7 @@ describe('MessageInput', () => {
       />
     )
 
-    expect(screen.getByPlaceholderText(/ask me anything about graduate admissions/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText(/message ksu chatbot/i)).toBeInTheDocument()
     expect(screen.getByRole('button')).toBeInTheDocument()
   })
 
@@ -33,7 +33,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     await user.type(input, 'Hello test message')
     
     expect(input).toHaveValue('Hello test message')
@@ -49,7 +49,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     const button = screen.getByRole('button')
     
     await user.type(input, 'Test message')
@@ -69,7 +69,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     
     await user.type(input, 'Test message{Enter}')
 
@@ -87,7 +87,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     const button = screen.getByRole('button')
     
     await user.type(input, '   ')
@@ -106,7 +106,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     const button = screen.getByRole('button')
     
     await user.type(input, '  Test message  ')
@@ -124,7 +124,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     expect(input).toBeDisabled()
   })
 
@@ -137,7 +137,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     expect(input).toBeDisabled()
   })
 
@@ -164,7 +164,7 @@ describe('MessageInput', () => {
       />
     )
 
-    const input = screen.getByPlaceholderText(/ask me anything about graduate admissions/i)
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
     await user.type(input, 'Test')
 
     const button = screen.getByRole('button')
