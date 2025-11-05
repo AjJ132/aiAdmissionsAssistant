@@ -3,7 +3,7 @@ import { useChat } from '@/hooks/useChat';
 import { chatAPIService, ChatAPIService } from '@/services/chatAPI';
 
 interface LiveChatProviderProps {
-  children: (chat: ReturnType<typeof useChat> & { testMessage: () => void }) => React.ReactNode;
+  children: (chat: ReturnType<typeof useChat>) => React.ReactNode;
   apiEndpoint?: string;
   chatId?: string;
 }
@@ -36,22 +36,15 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     chat.setCanSendMessage(false);
     chat.setError(null);
 
-    // Add "thinking" message
-    const thinkingMessageId = chat.addMessage({
-      text: 'Thinking...',
-      isUser: false,
-      isSearching: true,
-    });
-    currentMessageIdRef.current = thinkingMessageId;
-
     try {
       // Call the stateless chat API
       const response = await apiServiceRef.current.sendMessage(text);
 
       if (response.status === 'completed') {
-        // Update the thinking message with the actual response
-        chat.updateMessage(thinkingMessageId, {
+        // Add the AI response message
+        chat.addMessage({
           text: response.response,
+          isUser: false,
           isSearching: false,
           isStreaming: false,
           sources: response.sources,
@@ -60,8 +53,9 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
         console.log('Conversation thread_id:', response.thread_id);
       } else {
         // Handle error response
-        chat.updateMessage(thinkingMessageId, {
+        chat.addMessage({
           text: response.error || 'Failed to get response',
+          isUser: false,
           isSearching: false,
           isStreaming: false,
         });
@@ -70,9 +64,10 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     } catch (error) {
       console.error('Error sending message:', error);
       
-      // Update thinking message to show error
-      chat.updateMessage(thinkingMessageId, {
+      // Add error message
+      chat.addMessage({
         text: 'Failed to send message. Please try again.',
+        isUser: false,
         isSearching: false,
         isStreaming: false,
       });
@@ -84,11 +79,6 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     }
   }, [chat]);
 
-  const handleTestMessage = useCallback(() => {
-    const testMessage = "What are the admission requirements for the Computer Science graduate program?";
-    sendMessage(testMessage);
-  }, [sendMessage]);
-
   const clearMessages = useCallback(() => {
     // Clear messages and start new conversation
     chat.clearMessages();
@@ -99,7 +89,6 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
   const chatWithLive = {
     ...chat,
     sendMessage,
-    testMessage: handleTestMessage,
     clearMessages,
   };
 

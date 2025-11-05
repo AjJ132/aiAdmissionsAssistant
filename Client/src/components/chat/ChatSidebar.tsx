@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import React, { useRef, useState } from 'react';
 import { ChatHeader } from './ChatHeader';
 import { MessageList } from './MessageList';
@@ -10,7 +9,6 @@ interface ChatSidebarProps {
   onToggle: () => void;
   onWidthChange?: (width: number) => void;
   chatProvider: (children: (chat: ReturnType<typeof useChat>) => React.ReactNode) => React.ReactNode;
-  isDemoMode?: boolean;
 }
 
 export const ChatSidebar: React.FC<ChatSidebarProps> = ({ 
@@ -18,7 +16,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   onToggle, 
   onWidthChange,
   chatProvider,
-  isDemoMode = true
 }) => {
   const [chatWidth, setChatWidth] = useState(500);
   const [isResizing, setIsResizing] = useState(false);
@@ -54,7 +51,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   return (
     <div
       ref={chatRef}
-      className="fixed top-0 h-screen bg-white border-l border-gray-300 z-[1000] flex flex-col overflow-hidden shadow-lg"
+      className="fixed top-0 h-screen bg-gray-50 border-l border-gray-200 z-[1000] flex flex-col overflow-hidden shadow-xl"
       style={{
         width: `${chatWidth}px`,
         right: isOpen ? '0' : `-${chatWidth}px`,
@@ -64,16 +61,12 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     >
       {/* Resize Handle */}
       <div
-        className="absolute left-0 top-0 w-2 h-full bg-transparent hover:bg-blue-200 cursor-col-resize transition-colors duration-200 z-[1002] group"
+        className="absolute left-0 top-0 w-1.5 h-full bg-transparent hover:bg-blue-100 cursor-col-resize transition-colors duration-150 z-[1002] group"
         onMouseDown={handleResizeStart}
       >
         <div className="w-full h-full flex items-center justify-center">
-          <div className="w-1 h-12 bg-gray-400 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 shadow-sm"></div>
+          <div className="w-0.5 h-10 bg-gray-300 rounded-full opacity-0 group-hover:opacity-60 transition-opacity duration-150"></div>
         </div>
-        {/* Visual grip lines */}
-        <div className="absolute left-0.5 top-1/2 transform -translate-y-1/2 w-0.5 h-8 bg-gray-300 rounded-full opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-        <div className="absolute left-0.5 top-1/2 transform translate-y-2 w-0.5 h-6 bg-gray-300 rounded-full opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
-        <div className="absolute left-0.5 top-1/2 transform -translate-y-2 w-0.5 h-6 bg-gray-300 rounded-full opacity-0 group-hover:opacity-60 transition-opacity duration-200"></div>
       </div>
 
       {chatProvider((chat) => (
@@ -83,7 +76,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
             onToggle={onToggle}
             onClear={chat.clearMessages}
             messageCount={chat.metadata.messageCount}
-            isDemoMode={isDemoMode}
           />
 
           {/* Messages Area */}
@@ -96,7 +88,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
           {/* Message Input */}
           <MessageInput
             onSendMessage={chat.sendMessage}
-            onTestMessage={(chat as any).testMessage}
             isLoading={chat.isLoading}
             canSendMessage={chat.canSendMessage}
           />

@@ -10,7 +10,6 @@ interface ChatSidebarProps {
   onWidthChange?: (width: number) => void;
   chatProvider: {
     sendMessage: (text: string) => void;
-    testMessage?: () => void;
     messages: Message[];
     isLoading: boolean;
     canSendMessage: boolean;
@@ -39,12 +38,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   // Handle message sending - delegate to chat provider
   const handleSendMessage = (messageText: string) => {
-    // Type 'test' to trigger test message if available
-    if (messageText.toLowerCase().trim() === 'test' && chatProvider?.testMessage) {
-      chatProvider.testMessage();
-      return;
-    }
-
     if (chatProvider?.sendMessage) {
       chatProvider.sendMessage(messageText);
     }
@@ -150,10 +143,11 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         {/* Messages Container */}
         <div className="flex-1 min-h-0 flex flex-col bg-background">
           {/* Header with New Chat button */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 className="text-lg font-semibold">Graduate Admissions Assistant</h2>
-            {messages.length > 0 && (
+          <div className="flex items-end justify-between p-4 border-b border-border">
+            <p className="text-lg">Admissions Assistant</p>
+            
               <Button
+                disabled={messages.length === 0}
                 variant="outline"
                 size="sm"
                 onClick={() => chatProvider?.clearMessages()}
@@ -161,7 +155,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
               >
                 + New Chat
               </Button>
-            )}
+            
           </div>
           
           <MessageList
@@ -174,7 +168,6 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         {/* Input Area */}
         <MessageInput
           onSendMessage={handleSendMessage}
-          onTestMessage={chatProvider?.testMessage}
           isLoading={isLoading}
           canSendMessage={canSendMessage}
           placeholder={
