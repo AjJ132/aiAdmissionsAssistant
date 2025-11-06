@@ -13,14 +13,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-data "aws_secretsmanager_secret" "openai_api_key" {
-  name = "${var.project_name}-openai-api-key-${var.environment}"
-}
-
-data "aws_secretsmanager_secret_version" "openai_api_key" {
-  secret_id = data.aws_secretsmanager_secret.openai_api_key.id
-}
-
 # Lambda Layer for AWS SDK dependencies
 resource "aws_lambda_layer_version" "aws_sdk_layer" {
   filename            = var.lambda_layer_aws_zip_path
@@ -65,7 +57,7 @@ resource "aws_lambda_function" "api_lambda" {
   environment {
     variables = {
       ENVIRONMENT                = var.environment
-      OPENAI_API_KEY_SECRET      = data.aws_secretsmanager_secret.openai_api_key.name
+      OPENAI_API_KEY_SECRET      = "${var.project_name}-openai-api-key-${var.environment}"
       OPENAI_VECTOR_STORE_ID     = var.openai_vector_store_id
       OPENAI_ASSISTANT_ID        = var.openai_assistant_id
     }
@@ -125,7 +117,7 @@ resource "aws_iam_role_policy" "lambda_secrets_manager" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = data.aws_secretsmanager_secret.openai_api_key.arn
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:${var.project_name}-openai-api-key-${var.environment}-*"
       }
     ]
   })
