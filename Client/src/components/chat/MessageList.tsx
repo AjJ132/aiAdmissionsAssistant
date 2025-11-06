@@ -160,13 +160,23 @@ export const MessageList: React.FC<MessageListProps> = ({
                     <div className="mt-3 pt-3 border-t border-gray-200/20">
                       <p className="text-xs text-gray-400 mb-1.5">Sources:</p>
                       <div className="space-y-1">
-                        {message.sources.map((source, index) => (
-                          <div key={index} className="text-xs text-blue-500 hover:text-blue-700">
-                            <a href={source} target="_blank" rel="noopener noreferrer">
-                              {source}
-                            </a>
-                          </div>
-                        ))}
+                        {message.sources
+                          .filter(source => {
+                            // Only show sources that are valid URLs (not file IDs) THis is a backup
+                            try {
+                              const url = new URL(source);
+                              return url.protocol === 'http:' || url.protocol === 'https:';
+                            } catch {
+                              return false;
+                            }
+                          })
+                          .map((source, index) => (
+                            <div key={index} className="text-xs text-blue-500 hover:text-blue-700">
+                              <a href={source} target="_blank" rel="noopener noreferrer">
+                                {source}
+                              </a>
+                            </div>
+                          ))}
                       </div>
                     </div>
                   )}

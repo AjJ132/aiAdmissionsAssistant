@@ -9,6 +9,7 @@ This service implements a stateless chat architecture where:
 """
 
 import os
+import re
 from typing import Dict, Any, Optional, List
 from openai import OpenAI
 from aws_lambda_powertools import Logger
@@ -16,6 +17,37 @@ from aws_lambda_powertools import Logger
 from src.util.secrets_manager import get_openai_api_key
 
 logger = Logger(child=True)
+
+
+def clean_citation_annotations(text: str) -> str:
+    """
+    Remove OpenAI citation annotations from text.
+    
+    These annotations appear as 【number:number†source】 in the response text
+    and should be removed before displaying to users.
+    
+    Args:
+        text: The text containing citation annotations
+        
+    Returns:
+        Cleaned text without citation annotations
+    """
+    # Pattern matches 【number:number†source】 or similar variations
+    # Using Unicode ranges for the special brackets: \u3010 (【) and \u3011 (】)
+    # Made more flexible to catch various formats
+    pattern = r'[\u3010\[][\d]+:[\d]+[†\u2020]source[\u3011\]]'
+    cleaned_text = re.sub(pattern, '', text)
+    
+    # Also remove any standalone citation patterns that might be left
+    # This catches cases like 【4:1†source】 even with extra spaces or at line ends
+    pattern2 = r'\s*[\u3010][\d]+:[\d]+[†\u2020]source[\u3011]\s*'
+    cleaned_text = re.sub(pattern2, ' ', cleaned_text)
+    
+    # Clean up any double spaces created by removal
+    cleaned_text = re.sub(r'\s+', ' ', cleaned_text)
+    cleaned_text = cleaned_text.strip()
+    
+    return cleaned_text
 
 
 class ChatService:
@@ -123,6 +155,9 @@ class ChatService:
                                         citation = annotation.file_citation  # type: ignore
                                         if hasattr(citation, 'file_id'):
                                             sources.append(citation.file_id)
+                    
+                    # Clean citation annotations from the response text
+                    response_text = clean_citation_annotations(response_text)
                     
                     return {
                         "response": response_text,
