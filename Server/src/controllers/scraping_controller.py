@@ -84,10 +84,6 @@ class ScrapingController:
             print(f"✓ Scraping operation completed in {elapsed_time:.2f} seconds")
             print(f"✓ Successfully scraped {len(degree_information)} out of {len(degrees_to_scrape)} degrees")
 
-            # save to file
-            with open('scraped_degrees.json', 'w') as f:
-                json.dump(degree_information, f, indent=2)
-
             # exit()
             
             # Upload to OpenAI Vector Store
@@ -240,11 +236,6 @@ class ScrapingController:
                 print(f"Scraping general admissions requirements from: {admissions_url}")
                 page_html = await self.webRequestService.fetchPage(admissions_url)
                 
-                # Save raw HTML for debugging
-                with open('general_admissions_raw.html', 'w', encoding='utf-8') as f:
-                    f.write(page_html)
-                print("✓ Saved raw HTML to general_admissions_raw.html")
-                
                 admissions_data = self.scraping_utils.extract_general_admissions_requirements(page_html)
                 results['general_admissions_requirements'] = admissions_data
                 
@@ -263,22 +254,11 @@ class ScrapingController:
                 print(f"Scraping cost of attendance from: {cost_url}")
                 page_html = await self.webRequestService.fetchPage(cost_url)
                 
-                # Save raw HTML for debugging
-                with open('cost_of_attendance_raw.html', 'w', encoding='utf-8') as f:
-                    f.write(page_html)
-                print("✓ Saved raw HTML to cost_of_attendance_raw.html")
-                
                 cost_data = self.scraping_utils.extract_cost_of_attendance(page_html)
                 results['cost_of_attendance'] = cost_data
                 print("✓ Successfully scraped cost of attendance")
             except Exception as e:
                 print(f"Error scraping cost of attendance: {e}")
                 results['cost_of_attendance'] = {"error": str(e)}
-        
-        # Save to separate JSON file
-        if results:
-            with open('degree_independent_information.json', 'w') as f:
-                json.dump(results, f, indent=2)
-            print("✓ Saved degree-independent information to degree_independent_information.json")
         
         return results
