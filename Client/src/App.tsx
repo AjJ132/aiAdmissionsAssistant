@@ -3,7 +3,6 @@ import './App.css'
 import { useExternalResources } from './hooks/useExternalResources'
 import { HtmlContent } from './components/HtmlContent'
 import { ChatFloatingModal } from './components/chat/ChatFloatingModal'
-import { ChatSidebar } from './components/chat/ChatSidebar'
 import AdminDashboard from './components/admin/AdminDashboard'
 import { Button } from './components/ui/button'
 import { LiveChatProvider } from './providers'
@@ -22,8 +21,6 @@ console.log('All Vite env vars:', import.meta.env)
 console.log('========================')
 
 function App() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [chatWidth, setChatWidth] = useState(500);
   const { loaded: resourcesLoaded, error: resourceError } = useExternalResources();
 
   // Get admin mode from URL parameters
@@ -68,30 +65,8 @@ function App() {
     }
   }, []);
 
-  // Listen for AI chat button clicks from HTML
-  // This opens the SIDEBAR when the page button is clicked
-  useEffect(() => {
-    const handleOpenAIChat = () => {
-      setIsSidebarOpen(true);
-    };
-
-    window.addEventListener('openAIChat', handleOpenAIChat);
-    
-    return () => {
-      window.removeEventListener('openAIChat', handleOpenAIChat);
-    };
-  }, []);
-
   const handleContentLoaded = () => {
     // HTML content loaded successfully
-  };
-
-  const handleSidebarToggle = () => {
-    setIsSidebarOpen(!isSidebarOpen);
-  };
-
-  const handleChatWidthChange = (width: number) => {
-    setChatWidth(width);
   };
 
   const toggleAdminDashboard = () => {
@@ -183,30 +158,12 @@ function App() {
         /* Normal Mode */
         <>
           {/* Main content from HTML */}
-          <div 
-            className="main-content"
-            style={{
-              marginRight: isSidebarOpen ? `${chatWidth}px` : '0',
-              transition: 'margin-right 0.3s ease-in-out'
-            }}
-          >
+          <div className="main-content">
             <HtmlContent 
               htmlUrl="/grad_admin.html"
               onContentLoaded={handleContentLoaded}
             />
           </div>
-          
-          {/* Chat Sidebar - Opens from page button */}
-          <LiveChatProvider apiEndpoint={API_ENDPOINT}>
-            {(chat) => (
-              <ChatSidebar 
-                isOpen={isSidebarOpen}
-                onToggle={handleSidebarToggle}
-                onWidthChange={handleChatWidthChange}
-                chatProvider={(children) => children(chat)}
-              />
-            )}
-          </LiveChatProvider>
 
           {/* Floating Chat Modal - Bottom right corner button */}
           <LiveChatProvider apiEndpoint={API_ENDPOINT}>

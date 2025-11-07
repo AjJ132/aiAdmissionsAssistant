@@ -277,6 +277,160 @@ class VectorStoreService:
         logger.info(f"Upload complete: {result['new_uploads']} new, {result['updated_files']} updated, {result['failed_uploads']} failed out of {result['total_degrees']} total")
         return result
     
+    def upload_degree_independent_data(self, degree_independent_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Upload degree-independent information (general admissions, cost of attendance, etc.) to the vector store.
+        
+        Args:
+            degree_independent_data: Dictionary containing degree-independent information
+            
+        Returns:
+            Dictionary with upload statistics
+        """
+        if not self.vector_store_id:
+            raise ValueError("No vector store ID configured. Call create_vector_store() first.")
+        
+        logger.info(f"Uploading degree-independent information to vector store {self.vector_store_id}")
+        
+        # Get existing files to check for updates
+        existing_files = self._get_existing_files_map()
+        
+        uploaded_count = 0
+        failed_count = 0
+        temp_files = []
+        files_to_delete = []
+        
+        try:
+            # Create a temporary file for degree-independent information
+            content = self._format_degree_independent_content(degree_independent_data)
+            
+            # Use a fixed hash for degree-independent info
+            file_hash = "degree_independent"
+            
+            # Check if this file already exists
+            is_update = file_hash in existing_files
+            if is_update:
+                logger.info(f"Degree-independent info already exists, will update")
+                files_to_delete.append({
+                    'file_id': existing_files[file_hash],
+                    'hash': file_hash
+                })
+            
+            # Create temporary file
+            temp_file = tempfile.NamedTemporaryFile(
+                mode='w',
+                suffix='.txt',
+                prefix=f"degree_{file_hash}_",
+                delete=False,
+                encoding='utf-8'
+            )
+            temp_file.write(content)
+            temp_file.close()
+            temp_files.append({
+                'path': temp_file.name,
+                'hash': file_hash,
+                'is_update': is_update
+            })
+            
+            # Delete old version if updating
+            if files_to_delete:
+                logger.info(f"Deleting existing degree-independent file before re-upload")
+                for file_info in files_to_delete:
+                    try:
+                        self.client.vector_stores.files.delete(
+                            vector_store_id=self.vector_store_id,
+                            file_id=file_info['file_id']
+                        )
+                        logger.info(f"Deleted old version (file_id: {file_info['file_id']})")
+                    except Exception as e:
+                        logger.error(f"Error deleting file {file_info['file_id']}: {e}")
+            
+            # Upload the file
+            try:
+                for temp_file_info in temp_files:
+                    # Upload to OpenAI files API
+                    with open(temp_file_info['path'], 'rb') as f:
+                        file_response = self.client.files.create(
+                            file=f,
+                            purpose='assistants'
+                        )
+                    
+                    # Add file to vector store
+                    self.client.vector_stores.files.create(
+                        vector_store_id=self.vector_store_id,
+                        file_id=file_response.id
+                    )
+                    
+                    uploaded_count += 1
+                    logger.info(f"Successfully uploaded degree-independent information (file_id: {file_response.id})")
+                    
+            except Exception as e:
+                logger.error(f"Error uploading degree-independent information: {e}")
+                failed_count += 1
+        
+        finally:
+            # Clean up temporary files
+            for temp_file_info in temp_files:
+                try:
+                    os.unlink(temp_file_info['path'])
+                except Exception as e:
+                    logger.warning(f"Error deleting temp file {temp_file_info['path']}: {e}")
+        
+        result = {
+            'vector_store_id': self.vector_store_id,
+            'uploaded': uploaded_count,
+            'failed': failed_count
+        }
+        
+        logger.info(f"Degree-independent upload complete: {uploaded_count} uploaded, {failed_count} failed")
+        return result
+    
+    def _format_degree_independent_content(self, data: Dict[str, Any]) -> str:
+        """
+        Format degree-independent information into a structured text document.
+        
+        Args:
+            data: Dictionary containing degree-independent information
+            
+        Returns:
+            Formatted text content
+        """
+        lines = []
+        
+        lines.append("# Degree-Independent Information\n")
+        lines.append("This document contains general information applicable to all degree programs.\n\n")
+        
+        # General Admissions Requirements
+        if 'general_admissions_requirements' in data:
+            admissions = data['general_admissions_requirements']
+            lines.append("## General Admissions Requirements\n")
+            
+            if 'source_url' in admissions:
+                lines.append(f"Source: {admissions['source_url']}\n\n")
+            
+            if 'raw_text' in admissions:
+                lines.append(f"{admissions['raw_text']}\n\n")
+        
+        # Cost of Attendance
+        if 'cost_of_attendance' in data:
+            costs = data['cost_of_attendance']
+            lines.append("## Cost of Attendance\n")
+            
+            if 'source_url' in costs:
+                lines.append(f"Source: {costs['source_url']}\n\n")
+            
+            # Graduate costs
+            if 'graduate_text' in costs:
+                lines.append("### Graduate Program Costs\n\n")
+                lines.append(f"{costs['graduate_text']}\n\n")
+            
+            # Online costs
+            if 'online_text' in costs:
+                lines.append("### Online Program Costs\n\n")
+                lines.append(f"{costs['online_text']}\n\n")
+        
+        return '\n'.join(lines)
+    
     def _format_degree_content(self, degree: Dict[str, Any]) -> str:
         """
         Format degree information into a structured text document

@@ -42,6 +42,10 @@ class ScrapingController:
         print("Beginning scraping operation...")
 
         try:
+            # First, scrape degree-independent information
+            degree_independent_info = await self.scrapeDegreeIndependentInformation()
+            
+            # Then proceed with degree-specific scraping
             self.obtained_degrees = await self.obtainDegreeList()
 
             if not self.obtained_degrees:
@@ -84,7 +88,7 @@ class ScrapingController:
             with open('scraped_degrees.json', 'w') as f:
                 json.dump(degree_information, f, indent=2)
 
-            exit()
+            # exit()
             
             # Upload to OpenAI Vector Store
             if self.vector_store_service and degree_information:
@@ -100,6 +104,16 @@ class ScrapingController:
                     logger.error(f"Error deleting existing files: {e}")
                     print(f"Warning: Failed to delete existing files: {e}")
                     # Continue with upload even if deletion fails
+                
+                # Upload degree-independent information first
+                if degree_independent_info:
+                    print("Uploading degree-independent information to OpenAI Vector Store...")
+                    try:
+                        independent_upload_result = self.vector_store_service.upload_degree_independent_data(degree_independent_info)
+                        print(f"Degree-independent info upload: {independent_upload_result['uploaded']} uploaded, {independent_upload_result['failed']} failed")
+                    except Exception as e:
+                        logger.error(f"Error uploading degree-independent info: {e}")
+                        print(f"Warning: Failed to upload degree-independent information: {e}")
                 
                 print("Uploading degree data to OpenAI Vector Store...")
                 upload_start = time.time()
@@ -204,3 +218,67 @@ class ScrapingController:
             print(f"Error scraping degree page for {degree_name}: {e}")
             raise e
     
+    async def scrapeDegreeIndependentInformation(self):
+        """
+        Scrape degree-independent information such as general admissions requirements and cost of attendance.
+        Returns a dictionary with the scraped information.
+        """
+        print("\nScraping degree-independent information...")
+        
+        degree_independent_config = self.config.get("degree_independent", {})
+        
+        if not degree_independent_config:
+            print("No degree-independent configuration found in config")
+            return None
+        
+        results = {}
+        
+        # Scrape general admissions requirements
+        admissions_url = degree_independent_config.get("general_admissions_requirements_url")
+        if admissions_url:
+            try:
+                print(f"Scraping general admissions requirements from: {admissions_url}")
+                page_html = await self.webRequestService.fetchPage(admissions_url)
+                
+                # Save raw HTML for debugging
+                with open('general_admissions_raw.html', 'w', encoding='utf-8') as f:
+                    f.write(page_html)
+                print("✓ Saved raw HTML to general_admissions_raw.html")
+                
+                admissions_data = self.scraping_utils.extract_general_admissions_requirements(page_html)
+                results['general_admissions_requirements'] = admissions_data
+                
+                if 'error' in admissions_data:
+                    print(f"⚠ Warning: {admissions_data['error']}")
+                else:
+                    print("✓ Successfully scraped general admissions requirements")
+            except Exception as e:
+                print(f"Error scraping general admissions requirements: {e}")
+                results['general_admissions_requirements'] = {"error": str(e)}
+        
+        # Scrape cost of attendance
+        cost_url = degree_independent_config.get("cost_of_attendance_url")
+        if cost_url:
+            try:
+                print(f"Scraping cost of attendance from: {cost_url}")
+                page_html = await self.webRequestService.fetchPage(cost_url)
+                
+                # Save raw HTML for debugging
+                with open('cost_of_attendance_raw.html', 'w', encoding='utf-8') as f:
+                    f.write(page_html)
+                print("✓ Saved raw HTML to cost_of_attendance_raw.html")
+                
+                cost_data = self.scraping_utils.extract_cost_of_attendance(page_html)
+                results['cost_of_attendance'] = cost_data
+                print("✓ Successfully scraped cost of attendance")
+            except Exception as e:
+                print(f"Error scraping cost of attendance: {e}")
+                results['cost_of_attendance'] = {"error": str(e)}
+        
+        # Save to separate JSON file
+        if results:
+            with open('degree_independent_information.json', 'w') as f:
+                json.dump(results, f, indent=2)
+            print("✓ Saved degree-independent information to degree_independent_information.json")
+        
+        return results

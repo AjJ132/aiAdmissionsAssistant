@@ -4,5 +4,9 @@
     "degree": {
         "description_xpath": "//div[@class='two_col is_70 has_gap']//p[1]",
         "snapshot_xpath": "//h3[@id='snapshot']/parent::div/following-sibling::*[self::p or self::a]"
+    },
+    "degree_independent": {
+        "cost_of_attendance_url": "https://campus.kennesaw.edu/current-students/financial-aid/student-resources/cost-of-attendance.php",
+        "general_admissions_requirements_url": "https://catalog.kennesaw.edu/content.php?catoid=61&navoid=4606"
     }
 }
