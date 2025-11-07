@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Plus } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 
 interface ChatHeaderProps {
   onToggle: () => void;
@@ -9,6 +9,7 @@ interface ChatHeaderProps {
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
+  onToggle,
   onClear,
   messageCount,
 }) => {
@@ -18,17 +19,28 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
         <h2 className="text-sm font-medium text-gray-700">
           KSU Chatbot
         </h2>
-        {messageCount > 0 && (
+        <div className="flex items-center gap-2">
+          {messageCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClear}
+              className="text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-8 px-3"
+            >
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New Chat
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
-            onClick={onClear}
-            className="text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-8 px-3 ml-auto"
+            onClick={onToggle}
+            className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-8 w-8 p-0"
+            aria-label="Close sidebar"
           >
-            <Plus className="h-3.5 w-3.5 mr-1.5" />
-            New Chat
+            <X className="h-4 w-4" />
           </Button>
-        )}
+        </div>
       </div>
     </div>
   );

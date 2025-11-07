@@ -128,7 +128,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                         </h6>
                       ),
                       p: ({ children }) => (
-                        <p className={`text-sm leading-relaxed ${message.isUser ? 'text-white' : 'text-gray-700'}`}>
+                        <p className={`text-sm leading-relaxed !mt-0 ${message.isUser ? 'text-white' : 'text-gray-700'}`}>
                           {children}
                         </p>
                       ),
@@ -156,7 +156,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                   >
                     {message.text}
                   </ReactMarkdown>
-                  {message.sources && message.sources.length > 0 && (
+                  {/* {message.sources && message.sources.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-gray-200/20">
                       <p className="text-xs text-gray-400 mb-1.5">Sources:</p>
                       <div className="space-y-1">
@@ -179,7 +179,7 @@ export const MessageList: React.FC<MessageListProps> = ({
                           ))}
                       </div>
                     </div>
-                  )}
+                  )} */}
                 </div>
 
                 {/* Report Issue Button - Only for bot responses */}

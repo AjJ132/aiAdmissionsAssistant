@@ -51,7 +51,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   return (
     <div
       ref={chatRef}
-      className="fixed top-0 h-screen bg-gray-50 border-l border-gray-200 z-[1000] flex flex-col overflow-hidden shadow-xl"
+      className="fixed top-0 h-screen bg-gray-50 border-l border-gray-200 z-[1100] flex flex-col overflow-hidden shadow-xl"
       style={{
         width: `${chatWidth}px`,
         right: isOpen ? '0' : `-${chatWidth}px`,
@@ -61,7 +61,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
     >
       {/* Resize Handle */}
       <div
-        className="absolute left-0 top-0 w-1.5 h-full bg-transparent hover:bg-blue-100 cursor-col-resize transition-colors duration-150 z-[1002] group"
+        className="absolute left-0 top-0 w-1.5 h-full bg-transparent hover:bg-blue-100 cursor-col-resize transition-colors duration-150 z-[1102] group"
         onMouseDown={handleResizeStart}
       >
         <div className="w-full h-full flex items-center justify-center">
