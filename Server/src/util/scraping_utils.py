@@ -76,6 +76,65 @@ class ScrapingUtils:
         return text
     
     @staticmethod
+    def _convert_tables_to_markdown(element) -> str:
+        """
+        Convert HTML tables within an element to markdown format.
+        Also includes any paragraph text found.
+        """
+        from bs4 import Tag
+        
+        result_parts = []
+        
+        # Find all tables in the element
+        tables = element.find_all('table')
+        
+        for table in tables:
+            markdown_table = []
+            
+            # Process thead
+            thead = table.find('thead')
+            if thead:
+                header_rows = thead.find_all('tr')
+                for row in header_rows:
+                    cells = row.find_all(['th', 'td'])
+                    if cells:
+                        # Extract header text
+                        headers = [cell.get_text(strip=True) for cell in cells]
+                        headers = [ScrapingUtils._clean_unicode_escapes(h) for h in headers]
+                        
+                        # Create markdown header row
+                        markdown_table.append('| ' + ' | '.join(headers) + ' |')
+                        # Create separator row
+                        markdown_table.append('| ' + ' | '.join(['---'] * len(headers)) + ' |')
+            
+            # Process tbody
+            tbody = table.find('tbody')
+            if tbody:
+                rows = tbody.find_all('tr')
+                for row in rows:
+                    cells = row.find_all(['td', 'th'])
+                    if cells:
+                        # Extract cell text
+                        cell_texts = [cell.get_text(strip=True) for cell in cells]
+                        cell_texts = [ScrapingUtils._clean_unicode_escapes(c) for c in cell_texts]
+                        
+                        # Create markdown data row
+                        markdown_table.append('| ' + ' | '.join(cell_texts) + ' |')
+            
+            if markdown_table:
+                result_parts.append('\n'.join(markdown_table))
+        
+        # Also extract any paragraph text
+        paragraphs = element.find_all('p')
+        for p in paragraphs:
+            text = p.get_text(strip=True)
+            if text:
+                text = ScrapingUtils._clean_unicode_escapes(text)
+                result_parts.append('\n' + text)
+        
+        return '\n\n'.join(result_parts)
+    
+    @staticmethod
     def extract_main_content(html: str) -> Dict[str, Union[str, Dict, List]]:
         """
         Extract comprehensive content from a university degree page using multiple strategies
@@ -90,6 +149,7 @@ class ScrapingUtils:
             'program_benefits': ScrapingUtils._extract_program_benefits(soup),
             'contact_info': ScrapingUtils._extract_contact_info(soup),
             'related_programs': ScrapingUtils._extract_related_programs(soup),
+            'catalog_links': ScrapingUtils._extract_catalog_links(soup),
             'key_sections': ScrapingUtils._extract_key_sections(soup),
             'all_text': ScrapingUtils._extract_clean_text(soup)
         }
@@ -316,6 +376,24 @@ class ScrapingUtils:
         return programs[:5]
     
     @staticmethod
+    def _extract_catalog_links(soup) -> List[str]:
+        """Extract catalog links (e.g., catalog.kennesaw.edu)"""
+        catalog_links = []
+        
+        # Find all links in the page
+        all_links = soup.find_all('a', href=True)
+        
+        for link in all_links:
+            href = link.get('href', '')
+            # Check if the link contains 'catalog.kennesaw.edu'
+            if 'catalog.kennesaw.edu' in href:
+                # Avoid duplicates
+                if href not in catalog_links:
+                    catalog_links.append(href)
+        
+        return catalog_links
+    
+    @staticmethod
     def _extract_key_sections(soup) -> Dict[str, str]:
         """Extract major content sections by headings"""
         sections = {}
@@ -439,6 +517,98 @@ class ScrapingUtils:
             "program_benefits": data.get("program_benefits", []),
             "contact_info": data.get("contact_info", {}),
             "related_programs": data.get("related_programs", []),
+            "catalog_links": data.get("catalog_links", []),
             "key_sections": data.get("key_sections", {}),
             "all_text": data.get("all_text", "")
         }
+
+    @staticmethod
+    def extract_general_admissions_requirements(html: str) -> Dict[str, str]:
+        """
+        Extract general admissions requirements from catalog page.
+        Targets the main content area containing headings and paragraphs about admissions.
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        # Find the main content area - look for td with class 'block_content'
+        content_td = soup.find('td', class_='block_content')
+        
+        if not content_td:
+            return {
+                "error": "Main content area (td.block_content) not found",
+                "raw_text": ""
+            }
+        
+        # Extract all the text content, preserving structure
+        # We want headings and paragraphs
+        text_parts = []
+        
+        # Find all relevant elements (h1, h2, h3, h4, p, ol, ul)
+        for element in content_td.find_all(['h1', 'h2', 'h3', 'h4', 'p', 'ol', 'ul']):
+            # Skip the jump navigation table content
+            if element.find_parent('table', class_='acalog-export-remove'):
+                continue
+            
+            text = element.get_text(separator=' ', strip=True)
+            if text:  # Only add non-empty text
+                # Add heading markers for better structure
+                if element.name in ['h1', 'h2', 'h3', 'h4']:
+                    text = f"\n## {text}\n"
+                text_parts.append(ScrapingUtils._clean_unicode_escapes(text))
+        
+        if not text_parts:
+            return {
+                "error": "No content found in main content area",
+                "raw_text": ""
+            }
+        
+        # Join all text parts
+        text_content = '\n\n'.join(text_parts)
+        
+        return {
+            "source_url": "https://catalog.kennesaw.edu/content.php?catoid=61&navoid=4606",
+            "raw_text": text_content,
+            "extracted_at": "general_admissions_requirements",
+            "element_count": len(text_parts)
+        }
+    
+    @staticmethod
+    def extract_cost_of_attendance(html: str) -> Dict[str, str]:
+        """
+        Extract cost of attendance information from tabbed interface.
+        Specifically extracts Graduate and Online program costs.
+        """
+        soup = BeautifulSoup(html, 'html.parser')
+        
+        result = {
+            "source_url": "https://campus.kennesaw.edu/current-students/financial-aid/student-resources/cost-of-attendance.php",
+            "extracted_at": "cost_of_attendance",
+        }
+        
+        # Find all tab labels
+        tab_labels = soup.find_all('label', {'role': 'tab'})
+        
+        for label in tab_labels:
+            label_text = label.get_text(strip=True)
+            
+            # We're interested in Graduate and Online tabs
+            if label_text in ['Graduate', 'Online']:
+                # Get the label's id
+                label_id = label.get('id')
+                
+                if label_id:
+                    # Find the corresponding tab panel using aria-labelledby
+                    tab_panel = soup.find('div', {
+                        'role': 'tabpanel',
+                        'aria-labelledby': label_id
+                    })
+                    
+                    if tab_panel:
+                        # Convert HTML tables to markdown format
+                        markdown_content = ScrapingUtils._convert_tables_to_markdown(tab_panel)
+                        
+                        # Store markdown version
+                        key_name = label_text.lower().replace(' ', '_')
+                        result[f"{key_name}_text"] = markdown_content
+        
+        return result
