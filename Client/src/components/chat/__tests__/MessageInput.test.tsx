@@ -183,4 +183,78 @@ describe('MessageInput', () => {
 
     expect(screen.getByPlaceholderText('Custom placeholder text')).toBeInTheDocument()
   })
+
+  it('should enforce maximum character limit of 500', async () => {
+    const user = userEvent.setup()
+    render(
+      <MessageInput
+        onSendMessage={mockOnSendMessage}
+        isLoading={false}
+        canSendMessage={true}
+      />
+    )
+
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i) as HTMLTextAreaElement
+    const longText = 'a'.repeat(600) // Try to type 600 characters
+    
+    await user.type(input, longText)
+    
+    // Should be limited to 500 characters due to maxLength attribute
+    expect(input.value.length).toBeLessThanOrEqual(500)
+  })
+
+  it('should display character counter', () => {
+    render(
+      <MessageInput
+        onSendMessage={mockOnSendMessage}
+        isLoading={false}
+        canSendMessage={true}
+      />
+    )
+
+    // Should show 0/500 initially
+    expect(screen.getByText('0/500')).toBeInTheDocument()
+  })
+
+  it('should update character counter as user types', async () => {
+    const user = userEvent.setup()
+    render(
+      <MessageInput
+        onSendMessage={mockOnSendMessage}
+        isLoading={false}
+        canSendMessage={true}
+      />
+    )
+
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
+    await user.type(input, 'Hello')
+    
+    expect(screen.getByText('5/500')).toBeInTheDocument()
+  })
+
+  it('should not send messages longer than 500 characters', async () => {
+    const user = userEvent.setup()
+    render(
+      <MessageInput
+        onSendMessage={mockOnSendMessage}
+        isLoading={false}
+        canSendMessage={true}
+      />
+    )
+
+    const input = screen.getByPlaceholderText(/message ksu chatbot/i)
+    const button = screen.getByRole('button')
+    
+    // Manually set a value longer than 500 (bypassing maxLength for testing)
+    const longText = 'a'.repeat(501)
+    Object.defineProperty(input, 'value', {
+      writable: true,
+      value: longText
+    })
+    
+    await user.click(button)
+
+    // Should not send the message
+    expect(mockOnSendMessage).not.toHaveBeenCalled()
+  })
 })
