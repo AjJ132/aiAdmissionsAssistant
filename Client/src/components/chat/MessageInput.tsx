@@ -17,9 +17,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 }) => {
   const [inputValue, setInputValue] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const MAX_CHARS = 500;
 
   const handleSendMessage = () => {
-    if (inputValue.trim() && canSendMessage && !isLoading) {
+    if (inputValue.trim() && canSendMessage && !isLoading && inputValue.length <= MAX_CHARS) {
       onSendMessage(inputValue.trim());
       setInputValue('');
     }
@@ -50,18 +51,24 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           onKeyDown={handleKeyDown}
           placeholder={placeholder}
           disabled={!canSendMessage || isLoading}
+          maxLength={MAX_CHARS}
           rows={1}
           className="flex-1 bg-transparent border-0 focus:outline-none focus:ring-0 text-sm resize-none max-h-[120px] placeholder:text-gray-400 leading-5 py-0 m-0"
           style={{ minHeight: '20px' }}
         />
         <Button
           onClick={handleSendMessage}
-          disabled={!inputValue.trim() || !canSendMessage || isLoading}
+          disabled={!inputValue.trim() || !canSendMessage || isLoading || inputValue.length > MAX_CHARS}
           size="sm"
           className="rounded-full h-8 w-8 p-0 flex items-center justify-center flex-shrink-0 bg-[#FFB81C] hover:bg-[#E5A519] text-gray-900"
         >
           <Send className="h-4 w-4" />
         </Button>
+      </div>
+      <div className="flex justify-end px-1 pt-1">
+        <span className={`text-xs ${inputValue.length > MAX_CHARS ? 'text-red-600' : 'text-gray-500'}`}>
+          {inputValue.length}/{MAX_CHARS}
+        </span>
       </div>
     </div>
   );
