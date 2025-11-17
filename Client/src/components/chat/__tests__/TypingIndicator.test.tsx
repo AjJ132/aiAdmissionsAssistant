@@ -22,7 +22,7 @@ describe('TypingIndicator', () => {
   it('should show avatar fallback', () => {
     render(<TypingIndicator />)
     
-    expect(screen.getByText('AI')).toBeInTheDocument()
+    expect(screen.getByText('KSU')).toBeInTheDocument()
   })
 
   it('should render without errors', () => {
