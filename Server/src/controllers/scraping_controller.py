@@ -84,6 +84,10 @@ class ScrapingController:
             print(f"✓ Scraping operation completed in {elapsed_time:.2f} seconds")
             print(f"✓ Successfully scraped {len(degree_information)} out of {len(degrees_to_scrape)} degrees")
 
+            # save to file
+            # with open('scraped_degrees.json', 'w') as f:
+            #     json.dump(degree_information, f, indent=2)
+
             # exit()
             
             # Upload to OpenAI Vector Store
