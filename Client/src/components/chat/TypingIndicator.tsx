@@ -7,7 +7,7 @@ export const TypingIndicator: React.FC = () => {
       <div className="flex items-start gap-3">
         <Avatar className="h-7 w-7 bg-blue-50 flex-shrink-0 border-0">
           <AvatarFallback className="text-blue-600 text-xs font-medium">
-            AI
+            KSU
           </AvatarFallback>
         </Avatar>
         <div className="flex items-center bg-white border border-gray-200 rounded-2xl px-4 py-3">

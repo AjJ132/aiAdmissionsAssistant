@@ -81,14 +81,14 @@ export const MessageList: React.FC<MessageListProps> = ({
               {!message.isUser && (
                 <Avatar className="h-7 w-7 bg-blue-50 flex-shrink-0 border-0">
                   <AvatarFallback className="text-blue-600 text-xs font-medium">
-                    AI
+                    KSU
                   </AvatarFallback>
                 </Avatar>
               )}
               {message.isUser && (
                 <Avatar className="h-7 w-7 bg-gray-100 flex-shrink-0 border-0">
                   <AvatarFallback className="text-gray-600 text-xs font-medium">
-                    U
+                    You
                   </AvatarFallback>
                 </Avatar>
               )}

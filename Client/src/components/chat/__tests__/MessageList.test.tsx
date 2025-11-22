@@ -39,9 +39,9 @@ describe('MessageList', () => {
   it('should display user and AI avatars correctly', () => {
     render(<MessageList messages={mockMessages} isLoading={false} />)
     
-    // Should have U and AI avatar fallbacks
-    expect(screen.getByText('U')).toBeInTheDocument()
-    expect(screen.getByText('AI')).toBeInTheDocument()
+    // Should have You and KSU avatar fallbacks
+    expect(screen.getByText('You')).toBeInTheDocument()
+    expect(screen.getByText('KSU')).toBeInTheDocument()
   })
 
   it('should show typing indicator when isLoading is true', () => {
