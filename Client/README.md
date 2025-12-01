@@ -1,4 +1,49 @@
-# React + TypeScript + Vite
+# AI Admissions Assistant - Client
+
+React + TypeScript + Vite application for the KSU Graduate Admissions Assistant chatbot.
+
+## Backend Configuration
+
+The client connects to an AWS Lambda backend API for chat functionality. The API endpoint is configured via environment variables:
+
+1. Copy `.env.example` to `.env`:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Update the `VITE_API_ENDPOINT` in `.env` with your backend URL:
+   ```
+   VITE_API_ENDPOINT=https://your-api-gateway-url.execute-api.us-east-1.amazonaws.com/chat
+   ```
+
+Current production endpoint: `https://ookpvj4nh7.execute-api.us-east-1.amazonaws.com/chat`
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run tests
+npm run test
+```
+
+## Features
+
+- **Live Chat**: Always connected to backend API (no demo mode)
+- **Admin Dashboard**: Access via `?admin=true` URL parameter
+- **Responsive Design**: Resizable chat sidebar
+- **Message Streaming**: Real-time responses via Server-Sent Events (SSE)
+
+---
+
+## Original Vite Template Info
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 

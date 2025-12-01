@@ -13,15 +13,6 @@ provider "aws" {
   region = var.aws_region
 }
 
-# Reference existing OpenAI API Key from Secrets Manager
-data "aws_secretsmanager_secret" "openai_api_key" {
-  name = "${var.project_name}-openai-api-key-${var.environment}"
-}
-
-data "aws_secretsmanager_secret_version" "openai_api_key" {
-  secret_id = data.aws_secretsmanager_secret.openai_api_key.id
-}
-
 # Lambda Layer for AWS SDK dependencies
 resource "aws_lambda_layer_version" "aws_sdk_layer" {
   filename            = var.lambda_layer_aws_zip_path
@@ -60,13 +51,15 @@ resource "aws_lambda_function" "api_lambda" {
   handler         = "handler.lambda_handler"
   source_code_hash = filebase64sha256(var.lambda_zip_path)
   runtime         = "python3.13"
-  timeout         = 30
+  timeout         = 120
   memory_size     = 512
 
   environment {
     variables = {
-      ENVIRONMENT           = var.environment
-      OPENAI_API_KEY_SECRET = data.aws_secretsmanager_secret.openai_api_key.name
+      ENVIRONMENT                = var.environment
+      OPENAI_API_KEY_SECRET      = "${var.project_name}-openai-api-key-${var.environment}"
+      OPENAI_VECTOR_STORE_ID     = var.openai_vector_store_id
+      OPENAI_ASSISTANT_ID        = var.openai_assistant_id
     }
   }
 
@@ -124,7 +117,7 @@ resource "aws_iam_role_policy" "lambda_secrets_manager" {
         Action = [
           "secretsmanager:GetSecretValue"
         ]
-        Resource = data.aws_secretsmanager_secret.openai_api_key.arn
+        Resource = "arn:aws:secretsmanager:${var.aws_region}:*:secret:${var.project_name}-openai-api-key-${var.environment}-*"
       }
     ]
   })
@@ -200,4 +193,66 @@ resource "aws_lambda_permission" "api_gateway_invoke" {
   function_name = aws_lambda_function.api_lambda.function_name
   principal     = "apigateway.amazonaws.com"
   source_arn    = "${aws_apigatewayv2_api.http_api.execution_arn}/*/*"
+}
+
+# EventBridge Rule for nightly scraping at midnight UTC
+resource "aws_cloudwatch_event_rule" "nightly_scrape" {
+  count               = var.enable_scheduled_scraping ? 1 : 0
+  name                = "${var.project_name}-nightly-scrape-${var.environment}"
+  description         = "Trigger scraping operation every night at midnight UTC"
+  schedule_expression = var.scrape_schedule_expression
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# EventBridge Target - Lambda Function
+resource "aws_cloudwatch_event_target" "lambda_target" {
+  count     = var.enable_scheduled_scraping ? 1 : 0
+  rule      = aws_cloudwatch_event_rule.nightly_scrape[0].name
+  target_id = "NightlyScrapeTarget"
+  arn       = aws_lambda_function.api_lambda.arn
+
+  # Input to trigger the scrape endpoint
+  input = jsonencode({
+    routeKey = "POST /scrape"
+    version  = "2.0"
+    rawPath  = "/scrape"
+    rawQueryString = ""
+    headers = {
+      "content-type" = "application/json"
+    }
+    queryStringParameters = {}
+    requestContext = {
+      accountId    = "scheduled-event"
+      apiId        = "scheduled"
+      domainName   = "scheduled.eventbridge"
+      domainPrefix = "scheduled"
+      http = {
+        method   = "POST"
+        path     = "/scrape"
+        protocol = "HTTP/1.1"
+        sourceIp = "0.0.0.0"
+        userAgent = "Amazon-EventBridge"
+      }
+      requestId = "scheduled-request-id"
+      stage     = "scheduled"
+      time      = "scheduled"
+      timeEpoch = 0
+    }
+    body = jsonencode({})
+    isBase64Encoded = false
+  })
+}
+
+# Lambda Permission for EventBridge
+resource "aws_lambda_permission" "eventbridge_invoke" {
+  count         = var.enable_scheduled_scraping ? 1 : 0
+  statement_id  = "AllowEventBridgeInvoke"
+  action        = "lambda:InvokeFunction"
+  function_name = aws_lambda_function.api_lambda.function_name
+  principal     = "events.amazonaws.com"
+  source_arn    = aws_cloudwatch_event_rule.nightly_scrape[0].arn
 }

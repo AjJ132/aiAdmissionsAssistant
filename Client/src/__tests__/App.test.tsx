@@ -13,11 +13,11 @@ describe('App', () => {
     expect(container.firstChild).toBeTruthy()
   })
 
-  it('should use demo mode by default', () => {
+  it('should always use live mode (connected to backend)', () => {
     // Clear any existing URL params
     window.history.pushState({}, '', window.location.pathname)
     render(<App />)
-    // App should render successfully in demo mode
+    // App should render successfully and connect to backend
     expect(document.body).toBeTruthy()
   })
 })

@@ -1,13 +1,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { X, MessageSquare } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 
 interface ChatHeaderProps {
   onToggle: () => void;
   onClear: () => void;
   messageCount: number;
-  isDemoMode?: boolean;
 }
 
 export const ChatHeader: React.FC<ChatHeaderProps> = ({
@@ -16,44 +14,34 @@ export const ChatHeader: React.FC<ChatHeaderProps> = ({
   messageCount,
 }) => {
   return (
-    <Card className="rounded-none border-b py-0">
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="flex items-center space-x-2">
-              <MessageSquare className="h-5 w-5 text-blue-600" />
-              <h2 className="text-lg font-semibold text-gray-800">
-                AI Assistant
-              </h2>
-            </div>
-            {messageCount > 0 && (
-              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                {messageCount} message{messageCount !== 1 ? 's' : ''}
-              </span>
-            )}
-          </div>
-          <div className="flex items-center space-x-2">
-            {messageCount > 0 && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onClear}
-                className="text-gray-500 hover:text-gray-700"
-              >
-                Clear
-              </Button>
-            )}
+    <div className="px-4 py-3 border-b border-gray-100 bg-white">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium text-gray-700">
+          KSU Chatbot
+        </h2>
+        <div className="flex items-center gap-2">
+          {messageCount > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={onToggle}
-              className="text-gray-500 hover:text-gray-700"
+              onClick={onClear}
+              className="text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-8 px-3"
             >
-              <X className="h-4 w-4" />
+              <Plus className="h-3.5 w-3.5 mr-1.5" />
+              New Chat
             </Button>
-          </div>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggle}
+            className="text-gray-600 hover:text-gray-900 hover:bg-gray-50 h-8 w-8 p-0"
+            aria-label="Close sidebar"
+          >
+            <X className="h-4 w-4" />
+          </Button>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 };

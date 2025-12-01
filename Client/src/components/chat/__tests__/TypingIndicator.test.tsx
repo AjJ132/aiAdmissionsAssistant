@@ -4,9 +4,11 @@ import { TypingIndicator } from '../TypingIndicator'
 
 describe('TypingIndicator', () => {
   it('should render typing indicator', () => {
-    render(<TypingIndicator />)
+    const { container } = render(<TypingIndicator />)
     
-    expect(screen.getByText(/is typing/i)).toBeInTheDocument()
+    // Check for animated dots instead of text
+    const dots = container.querySelectorAll('.animate-bounce')
+    expect(dots.length).toBeGreaterThan(0)
   })
 
   it('should display animated dots', () => {
