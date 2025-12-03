@@ -52,3 +52,14 @@ output "eventbridge_schedule" {
   description = "Schedule expression for the nightly scrape"
   value       = var.enable_scheduled_scraping ? aws_cloudwatch_event_rule.nightly_scrape[0].schedule_expression : "Disabled"
 }
+
+# SNS Alerting Outputs
+output "scraping_alerts_sns_topic_arn" {
+  description = "ARN of SNS topic for scraping alerts"
+  value       = var.enable_scraping_alerts ? aws_sns_topic.scraping_alerts[0].arn : "Disabled"
+}
+
+output "scraping_alerts_enabled" {
+  description = "Whether scraping alerts are enabled"
+  value       = var.enable_scraping_alerts
+}

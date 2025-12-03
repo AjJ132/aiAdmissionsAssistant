@@ -256,3 +256,135 @@ resource "aws_lambda_permission" "eventbridge_invoke" {
   principal     = "events.amazonaws.com"
   source_arn    = aws_cloudwatch_event_rule.nightly_scrape[0].arn
 }
+
+# ============================================================================
+# SNS Alerting for Scraping Failures
+# ============================================================================
+
+# SNS Topic for scraping alerts
+resource "aws_sns_topic" "scraping_alerts" {
+  count        = var.enable_scraping_alerts ? 1 : 0
+  name         = "${var.project_name}-scraping-alerts-${var.environment}"
+  display_name = "KSU Chatbot Scraping Alerts"
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# SNS Topic Subscriptions for email alerts
+resource "aws_sns_topic_subscription" "email_alerts" {
+  count     = var.enable_scraping_alerts ? length(var.alert_email_addresses) : 0
+  topic_arn = aws_sns_topic.scraping_alerts[0].arn
+  protocol  = "email"
+  endpoint  = var.alert_email_addresses[count.index]
+}
+
+# SNS Topic Policy to allow CloudWatch Alarms to publish
+resource "aws_sns_topic_policy" "cloudwatch_publish" {
+  count  = var.enable_scraping_alerts ? 1 : 0
+  arn    = aws_sns_topic.scraping_alerts[0].arn
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Id      = "CloudWatchAlarmPublishPolicy"
+    Statement = [
+      {
+        Sid       = "AllowCloudWatchAlarms"
+        Effect    = "Allow"
+        Principal = {
+          Service = "cloudwatch.amazonaws.com"
+        }
+        Action   = "sns:Publish"
+        Resource = aws_sns_topic.scraping_alerts[0].arn
+        Condition = {
+          ArnLike = {
+            "aws:SourceArn" = "arn:aws:cloudwatch:${var.aws_region}:*:alarm:*"
+          }
+        }
+      }
+    ]
+  })
+}
+
+# CloudWatch Alarm - Lambda Errors
+resource "aws_cloudwatch_metric_alarm" "scraping_lambda_errors" {
+  count               = var.enable_scraping_alerts ? 1 : 0
+  alarm_name          = "${var.project_name}-scraping-lambda-errors-${var.environment}"
+  alarm_description   = "Alert when the scraping Lambda function encounters errors"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 1
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.api_lambda.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.scraping_alerts[0].arn]
+  ok_actions    = [aws_sns_topic.scraping_alerts[0].arn]
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# CloudWatch Alarm - Lambda Timeout (approaching timeout)
+resource "aws_cloudwatch_metric_alarm" "scraping_lambda_timeout" {
+  count               = var.enable_scraping_alerts ? 1 : 0
+  alarm_name          = "${var.project_name}-scraping-lambda-timeout-${var.environment}"
+  alarm_description   = "Alert when the scraping Lambda function approaches timeout"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods  = 1
+  metric_name         = "Duration"
+  namespace           = "AWS/Lambda"
+  period              = 300
+  statistic           = "Maximum"
+  # Lambda timeout is 120 seconds (120000 ms), threshold is percentage of that
+  threshold           = aws_lambda_function.api_lambda.timeout * 1000 * var.scraping_lambda_timeout_threshold_percentage / 100
+  treat_missing_data  = "notBreaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.api_lambda.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.scraping_alerts[0].arn]
+  ok_actions    = [aws_sns_topic.scraping_alerts[0].arn]
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
+
+# CloudWatch Alarm - Lambda No Invocation (missed scheduled run)
+resource "aws_cloudwatch_metric_alarm" "scraping_lambda_no_invocation" {
+  count               = var.enable_scraping_alerts && var.enable_scheduled_scraping ? 1 : 0
+  alarm_name          = "${var.project_name}-scraping-lambda-no-invocation-${var.environment}"
+  alarm_description   = "Alert when the scheduled scraping Lambda fails to invoke"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "Invocations"
+  namespace           = "AWS/Lambda"
+  period              = 86400  # 24 hours
+  statistic           = "Sum"
+  threshold           = 1
+  treat_missing_data  = "breaching"
+
+  dimensions = {
+    FunctionName = aws_lambda_function.api_lambda.function_name
+  }
+
+  alarm_actions = [aws_sns_topic.scraping_alerts[0].arn]
+  ok_actions    = [aws_sns_topic.scraping_alerts[0].arn]
+
+  tags = {
+    Environment = var.environment
+    Project     = var.project_name
+  }
+}
