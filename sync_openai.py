@@ -7,7 +7,7 @@ client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
 
 # Replace with your actual Vector Store ID
 VECTOR_STORE_ID = "vs_68d65318286081918f95b216ba55ab11" 
-FILES_DIR = "files_to_sync"
+FILES_DIR = "scraped_degrees/"
 
 def upload_file_to_vector_store(file_path):
     print(f"Uploading file: {file_path}")
