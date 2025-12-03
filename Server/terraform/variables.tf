@@ -63,3 +63,27 @@ variable "enable_scheduled_scraping" {
   type        = bool
   default     = true
 }
+
+# SNS Alerting Variables
+variable "enable_scraping_alerts" {
+  description = "Enable or disable SNS alerting for scraping failures"
+  type        = bool
+  default     = true
+}
+
+variable "alert_email_addresses" {
+  description = "List of email addresses to receive scraping failure alerts"
+  type        = list(string)
+  default     = []
+  sensitive   = true
+}
+
+variable "scraping_lambda_timeout_threshold_percentage" {
+  description = "Percentage of Lambda timeout duration that triggers alarm"
+  type        = number
+  default     = 90
+  validation {
+    condition     = var.scraping_lambda_timeout_threshold_percentage > 0 && var.scraping_lambda_timeout_threshold_percentage <= 100
+    error_message = "Threshold percentage must be between 1 and 100"
+  }
+}
