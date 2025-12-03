@@ -4,3 +4,4 @@ export { MessageList } from './MessageList';
 export { MessageInput } from './MessageInput';
 export { TypingIndicator } from './TypingIndicator';
 export { WelcomeMessage } from './WelcomeMessage';
+export { ContactUsButton } from './ContactUsButton';

@@ -40,11 +40,20 @@ export class RateLimitError extends Error {
   }
 }
 
+export class APIUnavailableError extends Error {
+  constructor(message: string = "I'm temporarily unavailable. Please try again in a few moments or contact the Graduate Admissions office directly.") {
+    super(message);
+    this.name = 'APIUnavailableError';
+  }
+}
+
 export class ChatAPIService {
   private apiEndpoint: string;
   private threadId: string | null;
   private maxRequestsPerMinute: number = 15; // Client-side limit (slightly lower than server)
   private rateLimitWindowMs: number = 60000; // 1 minute
+  private maxRetries: number = 3; // Maximum retry attempts for exponential backoff
+  private baseRetryDelayMs: number = 1000; // Base delay for exponential backoff (1 second)
 
   constructor(apiEndpoint: string = '/api/chat') {
     this.apiEndpoint = apiEndpoint;
@@ -119,64 +128,117 @@ export class ChatAPIService {
   }
 
   /**
+   * Helper to calculate delay for exponential backoff
+   * @param attempt - Current attempt number (0-indexed)
+   * @returns Delay in milliseconds
+   */
+  private calculateBackoffDelay(attempt: number): number {
+    return this.baseRetryDelayMs * Math.pow(2, attempt);
+  }
+
+  /**
+   * Helper to delay execution
+   * @param ms - Milliseconds to wait
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
    * Send a message to the chat API
    * 
    * @param message - The user's message
    * @returns Promise with the chat response
    * @throws RateLimitError if rate limit is exceeded
+   * @throws APIUnavailableError if all retry attempts fail
    */
   async sendMessage(message: string): Promise<ChatResponse> {
     // Check client-side rate limit first
     this.checkRateLimit();
     
-    try {
-      const requestBody: ChatMessage = {
-        message: message,
-      };
+    const requestBody: ChatMessage = {
+      message: message,
+    };
 
-      // Include thread_id if we have one (continuing conversation)
-      if (this.threadId) {
-        requestBody.thread_id = this.threadId;
-      }
+    // Include thread_id if we have one (continuing conversation)
+    if (this.threadId) {
+      requestBody.thread_id = this.threadId;
+    }
 
-      const response = await fetch(this.apiEndpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+    // Implement exponential backoff retry logic
+    for (let attempt = 0; attempt < this.maxRetries; attempt++) {
+      try {
+        const response = await fetch(this.apiEndpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
 
-      // Handle rate limit response from server
-      if (response.status === 429) {
-        const retryAfter = parseInt(response.headers.get('Retry-After') || '60', 10);
-        const data = await response.json();
-        throw new RateLimitError(
-          data.message || 'Rate limit exceeded. Please try again later.',
-          retryAfter
-        );
-      }
+        // Handle rate limit response from server - don't retry
+        if (response.status === 429) {
+          const retryAfter = parseInt(response.headers.get('Retry-After') || '60', 10);
+          const data = await response.json();
+          throw new RateLimitError(
+            data.message || 'Rate limit exceeded. Please try again later.',
+            retryAfter
+          );
+        }
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        // Check for server errors (5xx) - these should be retried
+        if (response.status >= 500) {
+          if (attempt < this.maxRetries - 1) {
+            console.log(`Attempt ${attempt + 1} failed with status ${response.status}, retrying...`);
+            await this.delay(this.calculateBackoffDelay(attempt));
+            continue;
+          }
+          // Last attempt for 5xx - throw APIUnavailableError
+          console.error(`Server error ${response.status} after all retries`);
+          throw new APIUnavailableError();
+        }
 
-      const data: ChatResponse = await response.json();
+        // Handle client errors (4xx except 429) - don't retry, throw original error
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
 
-      // Store thread_id for future requests
-      if (data.thread_id) {
-        this.threadId = data.thread_id;
-        localStorage.setItem(THREAD_ID_STORAGE_KEY, data.thread_id);
-      }
+        const data: ChatResponse = await response.json();
 
-      return data;
-    } catch (error) {
-      if (error instanceof RateLimitError) {
+        // Store thread_id for future requests
+        if (data.thread_id) {
+          this.threadId = data.thread_id;
+          localStorage.setItem(THREAD_ID_STORAGE_KEY, data.thread_id);
+        }
+
+        return data;
+      } catch (error) {
+        // Don't retry rate limit errors or APIUnavailableError - throw immediately
+        if (error instanceof RateLimitError || error instanceof APIUnavailableError) {
+          throw error;
+        }
+
+        // Retry on network errors (TypeError for failed fetch)
+        if (error instanceof TypeError && attempt < this.maxRetries - 1) {
+          console.log(`Attempt ${attempt + 1} failed, retrying in ${this.calculateBackoffDelay(attempt)}ms...`);
+          await this.delay(this.calculateBackoffDelay(attempt));
+          continue;
+        }
+
+        // Network error on last attempt - throw APIUnavailableError
+        if (error instanceof TypeError) {
+          console.error('Error sending message after all retries:', error);
+          throw new APIUnavailableError();
+        }
+
+        // Non-retryable error (e.g., 4xx client errors) - throw immediately
         throw error;
       }
-      console.error('Error sending message:', error);
-      throw error;
     }
+
+    // All retries exhausted - throw APIUnavailableError
+    console.error('All retry attempts failed. Throwing APIUnavailableError.');
+    throw new APIUnavailableError();
   }
 
   /**

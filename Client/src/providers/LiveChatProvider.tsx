@@ -1,9 +1,12 @@
-import React, { useCallback, useRef, useEffect } from 'react';
+import React, { useCallback, useRef, useEffect, useState } from 'react';
 import { useChat } from '@/hooks/useChat';
-import { chatAPIService, ChatAPIService } from '@/services/chatAPI';
+import { chatAPIService, ChatAPIService, APIUnavailableError } from '@/services/chatAPI';
+
+// Fallback message constant
+const FALLBACK_MESSAGE = "I'm temporarily unavailable. Please try again in a few moments or contact the Graduate Admissions office directly at graduate@kennesaw.edu or 470-578-4377.";
 
 interface LiveChatProviderProps {
-  children: (chat: ReturnType<typeof useChat>) => React.ReactNode;
+  children: (chat: ReturnType<typeof useChat> & { showContactUs: boolean; setShowContactUs: (show: boolean) => void }) => React.ReactNode;
   apiEndpoint?: string;
   chatId?: string;
 }
@@ -18,6 +21,7 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
   const apiServiceRef = useRef<ChatAPIService>(
     apiEndpoint ? new ChatAPIService(apiEndpoint) : chatAPIService
   );
+  const [showContactUs, setShowContactUs] = useState(false);
 
   // Load thread_id on mount
   useEffect(() => {
@@ -35,6 +39,7 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     chat.setLoading(true);
     chat.setCanSendMessage(false);
     chat.setError(null);
+    setShowContactUs(false);
 
     try {
       // Call the stateless chat API
@@ -64,14 +69,27 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     } catch (error) {
       console.error('Error sending message:', error);
       
-      // Add error message
-      chat.addMessage({
-        text: 'Failed to send message. Please try again.',
-        isUser: false,
-        isSearching: false,
-        isStreaming: false,
-      });
-      chat.setError('Failed to send message. Please try again.');
+      // Check if it's an API unavailability error (after retries exhausted)
+      if (error instanceof APIUnavailableError) {
+        // Show fallback message and Contact Us button
+        chat.addMessage({
+          text: FALLBACK_MESSAGE,
+          isUser: false,
+          isSearching: false,
+          isStreaming: false,
+        });
+        setShowContactUs(true);
+        chat.setError(null); // Don't show error banner, the fallback message is sufficient
+      } else {
+        // Add generic error message for other errors
+        chat.addMessage({
+          text: 'Failed to send message. Please try again.',
+          isUser: false,
+          isSearching: false,
+          isStreaming: false,
+        });
+        chat.setError('Failed to send message. Please try again.');
+      }
     } finally {
       chat.setLoading(false);
       chat.setCanSendMessage(true);
@@ -83,6 +101,7 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     // Clear messages and start new conversation
     chat.clearMessages();
     apiServiceRef.current.startNewConversation();
+    setShowContactUs(false);
     console.log('Started new conversation');
   }, [chat]);
 
@@ -90,6 +109,8 @@ export const LiveChatProvider: React.FC<LiveChatProviderProps> = ({
     ...chat,
     sendMessage,
     clearMessages,
+    showContactUs,
+    setShowContactUs,
   };
 
   return <>{children(chatWithLive)}</>;

@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { MessageList } from './MessageList';
 import { MessageInput } from './MessageInput';
+import { ContactUsButton } from './ContactUsButton';
 import { useChat } from '@/hooks/useChat';
 import { MessageCircle, X, RotateCcw } from 'lucide-react';
 
 interface ChatFloatingModalProps {
-  chatProvider: (children: (chat: ReturnType<typeof useChat>) => React.ReactNode) => React.ReactNode;
+  chatProvider: (children: (chat: ReturnType<typeof useChat> & { showContactUs: boolean; setShowContactUs: (show: boolean) => void }) => React.ReactNode) => React.ReactNode;
 }
 
 export const ChatFloatingModal: React.FC<ChatFloatingModalProps> = ({ 
@@ -80,6 +81,13 @@ export const ChatFloatingModal: React.FC<ChatFloatingModalProps> = ({
               canSendMessage={chat.canSendMessage}
             />
           </div>
+
+          {/* Contact Us Button - shown when AI services are unavailable */}
+          {chat.showContactUs && (
+            <div className="flex-shrink-0 px-4 py-3 bg-amber-50 border-t border-amber-200">
+              <ContactUsButton />
+            </div>
+          )}
 
           {/* Error Display */}
           {chat.error && (
